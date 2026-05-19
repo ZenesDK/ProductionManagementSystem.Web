@@ -17,6 +17,7 @@ public class ProductionLine
     /// <summary>
     /// Коэффициент эффективности (0.5 - 2.0)
     /// </summary>
+    [Range(0.5f, 2.0f, ErrorMessage = "Коэффициент эффективности должен быть в диапазоне от 0.5 до 2.0.")]
     public float EfficiencyFactor { get; set; } = 1.0f;
 
     // Внешний ключ на текущий заказ (может быть null)

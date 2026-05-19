@@ -24,7 +24,7 @@
     </div>
     <div class="form-group mb-3">
         <label asp-for="StartDate" class="control-label">Дата начала</label>
-        <input asp-for="StartDate" class="form-control" type="date" value="@(DateTime.Now.ToString("yyyy-MM-dd"))" required />
+        <input asp-for="StartDate" class="form-control" type="datetime-local" value="@(DateTime.Now.ToString("yyyy-MM-ddTHH:mm"))" required />
         <span asp-validation-for="StartDate" class="text-danger"></span>
     </div>
     <div class="form-group mb-3">

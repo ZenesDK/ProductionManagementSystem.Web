@@ -1,0 +1,4488 @@
+================================================================================
+PROJECT ANALYSIS REPORT FOR: .
+================================================================================
+
+
+--- ROOT DIRECTORY ---
+
+>>> FILE: Program.cs <<<
+------------------
+using Microsoft.EntityFrameworkCore;
+using ProductionManagementSystem.Web.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddHostedService<OrderCompletionService>();
+
+// Add EF Core
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=ProductionManagementSystem.db";
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(connectionString));
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();
+==================== END OF Program.cs ====================
+
+>>> FILE: README.md <<<
+-----------------
+# Система управления производством (Production Management System)
+
+Веб-приложение для автоматизации и управления производственными процессами. Система позволяет контролировать запасы сырья, планировать выпуск продукции, отслеживать загрузку производственных линий и управлять статусами заказов.
+
+![Страница главная](screenshot.png)
+
+## 🛠 Технологии
+
+Проект разработан на современном стеке Microsoft:
+
+*   **Backend:** ASP.NET Core 9.0 (MVC)
+*   **Язык:** C# (NET 9.0)
+*   **База данных:** SQLite (через Entity Framework Core)
+*   **Frontend:** HTML5, CSS3, JavaScript (ES6+)
+*   **UI Framework:** Bootstrap 5
+*   **ORM:** Entity Framework Core
+
+## ✨ Основные возможности
+
+### 📦 Управление материалами (Склад)
+*   Создание и редактирование справочника материалов.
+*   Учет количества на складе и единиц измерения.
+*   Настройка **минимального запаса** (система подсвечивает дефицит).
+*   Функция быстрого пополнения склада через модальное окно.
+*   Защита от дубликатов и отрицательных значений.
+
+###  Управление продуктами
+*   Создание карточек продукции.
+*   Указание нормативного времени производства на единицу.
+*   **Рецепты (BOM):** Привязка необходимых материалов к каждому продукту с указанием расхода на единицу.
+*   Категоризация продукции и поиск.
+
+### ⚙️ Производственные линии
+*   Управление станками/линиями (название, коэффициент эффективности).
+*   Смена статусов: `Активна` / `Остановлена`.
+*   Автоматический расчёт времени выполнения заказа на основе эффективности линии.
+
+### 📋 Управление заказами (Work Orders)
+*   Создание производственных заказов с выбором продукта и линии.
+*   Автоматический расчёт даты окончания (`EstimatedEndDate`) при создании.
+*   Проверка наличия материалов перед запуском заказа.
+*   Назначение заказов на свободные линии.
+*   Отслеживание статусов: `Ожидает`, `В процессе`, `Завершён`, `Отменён`.
+
+## 🚀 Установка и запуск
+
+### Предварительные требования
+Для работы приложения необходимо наличие:
+*   [.NET SDK 9.0](https://dotnet.microsoft.com/download/dotnet/9.0) или новее.
+
+### Запуск проекта
+
+1.  Откройте терминал в папке проекта:
+    ```bash
+    cd ProductionManagementSystem.Web
+    ```
+
+2.  Восстановите зависимости:
+    ```bash
+    dotnet restore
+    ```
+
+3.  Создайте и примените миграции базы данных:
+    ```bash
+    dotnet ef database update
+    ```
+    *(Если миграции отсутствуют, создайте их командой `dotnet ef migrations add InitialCreate`)*
+
+4.  Запустите приложение:
+    ```bash
+    dotnet run
+    ```
+
+5.  Откройте браузер и перейдите по адресу: [http://localhost:5028](http://localhost:5028) (или другой порт, указанный в терминале).
+
+## 🏗 Архитектура проекта
+
+### Структура ключевых компонентов:
+
+*   **Models:** Содержит сущности БД (`Material`, `Product`, `ProductionLine`, `WorkOrder`) и промежуточные классы (`ProductMaterial` для связи "многие ко многим").
+*   **Data:** Контекст базы данных `ApplicationDbContext` и конфигурация связей (Fluent API).
+*   **Controllers:** Обработка логики запросов, валидация данных и взаимодействие с БД.
+*   **Views:** Razor-представления с адаптивной версткой.
+
+### Особенности реализации:
+*   Используется подход **Code First** для базы данных.
+*   Валидация данных осуществляется как на уровне моделей (`DataAnnotations`), так и на уровне контроллеров (проверка уникальности имен, наличие материалов).
+*   Для сложных форм создания продуктов используется паттерн **ViewModel** (`ProductFormViewModel`), позволяющий передавать в представление дополнительные списки для выбора материалов.
+==================== END OF README.md ====================
+
+>>> FILE: appsettings.Development.json <<<
+------------------------------------
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+
+==================== END OF appsettings.Development.json ====================
+
+>>> FILE: appsettings.json <<<
+------------------------
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=ProductionManagementSystem.db"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+==================== END OF appsettings.json ====================
+
+>>> FILE: project_structure_and_content.txt <<<
+-----------------------------------------
+
+==================== END OF project_structure_and_content.txt ====================
+
+--- DIRECTORY: Controllers ---
+
+>>> FILE: Controllers/HomeController.cs <<<
+-------------------------------------
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using ProductionManagementSystem.Web.Models;
+
+namespace ProductionManagementSystem.Web.Controllers;
+
+public class HomeController : Controller
+{
+    private readonly ILogger<HomeController> _logger;
+
+    public HomeController(ILogger<HomeController> logger)
+    {
+        _logger = logger;
+    }
+
+    public IActionResult Index()
+    {
+        return View();
+    }
+
+    public IActionResult Privacy()
+    {
+        return View();
+    }
+
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error()
+    {
+        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+    }
+}
+
+==================== END OF Controllers/HomeController.cs ====================
+
+>>> FILE: Controllers/MaterialsController.cs <<<
+------------------------------------------
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductionManagementSystem.Web.Data;
+using ProductionManagementSystem.Web.Models;
+
+namespace ProductionManagementSystem.Web.Controllers;
+
+public class MaterialsController : Controller
+{
+    private readonly ApplicationDbContext _context;
+
+    public MaterialsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    // GET: Materials
+    public async Task<IActionResult> Index(string low_stock = "")
+    {
+        IQueryable<Material> query = _context.Materials;
+
+        bool shouldFilterLowStock = (low_stock == "true");
+        if (shouldFilterLowStock)
+        {
+            query = query.Where(m => m.Quantity <= m.MinimalStock);
+        }
+
+        ViewBag.LowStock = shouldFilterLowStock;
+        var materials = await query.OrderBy(m => m.Name).ToListAsync();
+        return View(materials);
+    }
+
+    // GET: Materials/Create
+    public IActionResult Create()
+    {
+        return View();
+    }
+
+    // POST: Materials/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([Bind("Name,Quantity,UnitOfMeasure,MinimalStock")] Material material)
+    {
+        // Проверка на дубликат названия (регистронезависимое)
+        var existingMaterial = await _context.Materials
+            .FirstOrDefaultAsync(m => m.Name.ToLower() == material.Name.ToLower());
+        
+        if (existingMaterial != null)
+        {
+            ModelState.AddModelError("Name", "Материал с таким названием уже существует.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            _context.Add(material);
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+        return View(material);
+    }
+
+    // GET: Materials/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var material = await _context.Materials.FindAsync(id);
+        if (material == null) return NotFound();
+
+        return View(material);
+    }
+
+    // POST: Materials/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Quantity,UnitOfMeasure,MinimalStock")] Material material)
+    {
+        if (id != material.Id) return NotFound();
+
+        // Проверка на дубликат названия (регистронезависимое, исключая текущий материал)
+        var existingMaterial = await _context.Materials
+            .FirstOrDefaultAsync(m => m.Name.ToLower() == material.Name.ToLower() && m.Id != id);
+        
+        if (existingMaterial != null)
+        {
+            ModelState.AddModelError("Name", "Материал с таким названием уже существует.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                _context.Update(material);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.Materials.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
+        }
+        return View(material);
+    }
+
+    // GET: Materials/Delete/5
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var material = await _context.Materials.FirstOrDefaultAsync(m => m.Id == id);
+        if (material == null) return NotFound();
+
+        return View(material);
+    }
+
+    // POST: Materials/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var material = await _context.Materials.FindAsync(id);
+        if (material != null)
+        {
+            _context.Materials.Remove(material);
+            await _context.SaveChangesAsync();
+        }
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: Materials/AddStock/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddStock(int id, [FromBody] AddStockDto requestData)
+    {
+        if (requestData == null || requestData.Amount <= 0)
+            return BadRequest("Amount must be a positive number.");
+
+        var material = await _context.Materials.FindAsync(id);
+        if (material == null) return NotFound();
+
+        material.Quantity += requestData.Amount;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { newQuantity = material.Quantity });
+    }
+}
+==================== END OF Controllers/MaterialsController.cs ====================
+
+>>> FILE: Controllers/ProductionLinesController.cs <<<
+------------------------------------------------
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using ProductionManagementSystem.Web.Data;
+using ProductionManagementSystem.Web.Models;
+
+namespace ProductionManagementSystem.Web.Controllers;
+
+public class ProductionLinesController : Controller
+{
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<ProductionLinesController> _logger;
+
+    public ProductionLinesController(ApplicationDbContext context, ILogger<ProductionLinesController> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
+    // GET: ProductionLines
+    public async Task<IActionResult> Index(string available = "")
+    {
+        IQueryable<ProductionLine> query = _context.ProductionLines
+            .Include(pl => pl.CurrentWorkOrder)
+            .ThenInclude(wo => wo.Product);
+
+        bool shouldFilterAvailable = (available == "true");
+        if (shouldFilterAvailable)
+        {
+            query = query.Where(pl => pl.Status == "Active");
+        }
+
+        ViewBag.Available = shouldFilterAvailable;
+        var productionLines = await query.OrderBy(pl => pl.Name).ToListAsync();
+        return View(productionLines);
+    }
+
+    // GET: ProductionLines/Create
+    public IActionResult Create()
+    {
+        return View();
+    }
+
+    // POST: ProductionLines/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([Bind("Name,EfficiencyFactor")] ProductionLine productionLine)
+    {
+        // Проверка на дубликат названия (без учёта регистра)
+        if (await _context.ProductionLines.AnyAsync(p => p.Name.ToLower() == productionLine.Name.ToLower()))
+        {
+            ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                productionLine.Status = "Stopped";
+                _context.Add(productionLine);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateException ex)
+            {
+                if (ex.InnerException?.Message.Contains("UNIQUE constraint failed: ProductionLines.Name") == true)
+                {
+                    ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Произошла ошибка при сохранении данных. Попробуйте ещё раз.");
+                    _logger.LogError(ex, "Ошибка при создании производственной линии");
+                }
+            }
+        }
+        
+        return View(productionLine);
+    }
+
+    // GET: ProductionLines/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var productionLine = await _context.ProductionLines.FindAsync(id);
+        if (productionLine == null) return NotFound();
+
+        return View(productionLine);
+    }
+
+    // POST: ProductionLines/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Status,EfficiencyFactor")] ProductionLine productionLine)
+    {
+        if (id != productionLine.Id) return NotFound();
+
+        // Проверка на дубликат названия (без учёта регистра, исключая текущую линию)
+        if (await _context.ProductionLines.AnyAsync(p => p.Name.ToLower() == productionLine.Name.ToLower() && p.Id != id))
+        {
+            ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                _context.Update(productionLine);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.ProductionLines.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+            catch (DbUpdateException ex)
+            {
+                if (ex.InnerException?.Message.Contains("UNIQUE constraint failed: ProductionLines.Name") == true)
+                {
+                    ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Произошла ошибка при сохранении данных. Попробуйте ещё раз.");
+                    _logger.LogError(ex, "Ошибка при обновлении производственной линии");
+                }
+            }
+        }
+        
+        return View(productionLine);
+    }
+
+    // GET: ProductionLines/Delete/5
+    [HttpGet]
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var productionLine = await _context.ProductionLines.FirstOrDefaultAsync(p => p.Id == id);
+        if (productionLine == null) return NotFound();
+
+        return View(productionLine);
+    }
+
+    // POST: ProductionLines/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var productionLine = await _context.ProductionLines.FindAsync(id);
+        if (productionLine != null)
+        {
+            // Отвязываем все заказы от удаляемой линии
+            var orders = _context.WorkOrders.Where(wo => wo.ProductionLineId == id);
+            foreach (var order in orders)
+            {
+                order.ProductionLineId = null;
+            }
+
+            _context.ProductionLines.Remove(productionLine);
+            await _context.SaveChangesAsync();
+        }
+        return RedirectToAction(nameof(Index));
+    }
+
+    // GET: ProductionLines/Schedule/5
+    public async Task<IActionResult> Schedule(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var productionLine = await _context.ProductionLines
+            .Include(pl => pl.AssignedWorkOrders)
+            .ThenInclude(wo => wo.Product)
+            .FirstOrDefaultAsync(m => m.Id == id);
+
+        if (productionLine == null) return NotFound();
+
+        ViewBag.AvailableOrders = await _context.WorkOrders
+            .Where(wo => wo.ProductionLineId == null && wo.Status == "Pending")
+            .Include(wo => wo.Product)
+            .ToListAsync();
+
+        return View(productionLine);
+    }
+
+    // POST: ProductionLines/AssignOrder
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignOrder(int productionLineId, int workOrderId)
+    {
+        _logger.LogInformation($"AssignOrder called: productionLineId={productionLineId}, workOrderId={workOrderId}");
+
+        var line = await _context.ProductionLines.FindAsync(productionLineId);
+        var order = await _context.WorkOrders
+            .Include(wo => wo.Product)
+            .ThenInclude(p => p.MaterialsNeeded)
+            .ThenInclude(pm => pm.Material)
+            .FirstOrDefaultAsync(wo => wo.Id == workOrderId);
+
+        if (line == null)
+        {
+            _logger.LogError($"Production line {productionLineId} not found");
+            return NotFound($"Линия #{productionLineId} не найдена");
+        }
+        
+        if (order == null)
+        {
+            _logger.LogError($"Work order {workOrderId} not found");
+            return NotFound($"Заказ #{workOrderId} не найден");
+        }
+
+        // Проверка материалов
+        bool hasSufficientMaterials = true;
+        if (order.Product?.MaterialsNeeded != null)
+        {
+            foreach (var pm in order.Product.MaterialsNeeded)
+            {
+                var materialInStock = await _context.Materials
+                    .Where(m => m.Id == pm.MaterialId)
+                    .Select(m => m.Quantity)
+                    .FirstOrDefaultAsync();
+                
+                if (materialInStock < pm.QuantityNeeded * order.Quantity)
+                {
+                    hasSufficientMaterials = false;
+                    _logger.LogWarning($"Недостаточно материала #{pm.MaterialId} для заказа #{workOrderId}");
+                    break;
+                }
+            }
+        }
+
+        if (!hasSufficientMaterials)
+        {
+            TempData["ErrorMessage"] = "Недостаточно материалов для запуска заказа.";
+            return RedirectToAction(nameof(Schedule), new { id = productionLineId });
+        }
+
+        // Назначаем заказ на линию
+        order.ProductionLineId = productionLineId;
+        order.Status = "InProgress"; // Всегда меняем статус на "В процессе"
+        
+        // Делаем этот заказ текущим для линии
+        line.CurrentWorkOrderId = order.Id;
+        if (line.Status != "Active")
+        {
+            line.Status = "Active"; // Активируем линию
+        }
+        
+        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен");
+
+        await _context.SaveChangesAsync();
+        return RedirectToAction(nameof(Schedule), new { id = productionLineId });
+    }
+
+    // POST: ProductionLines/UpdateStatus/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusDto requestData)
+    {
+        if (requestData == null || string.IsNullOrEmpty(requestData.Status))
+            return BadRequest("Status is required.");
+
+        string status = requestData.Status;
+        if (status != "Active" && status != "Stopped")
+            return BadRequest("Invalid status. Expected 'Active' or 'Stopped'.");
+
+        var line = await _context.ProductionLines.FindAsync(id);
+        if (line == null) return NotFound();
+
+        if (status == "Active" && line.CurrentWorkOrderId.HasValue)
+        {
+            var order = await _context.WorkOrders
+                .Include(wo => wo.Product)
+                .ThenInclude(p => p.MaterialsNeeded)
+                .ThenInclude(pm => pm.Material)
+                .FirstOrDefaultAsync(wo => wo.Id == line.CurrentWorkOrderId);
+
+            if (order != null && order.Status == "Pending")
+            {
+                order.Status = "InProgress";
+                _context.Update(order);
+            }
+        }
+
+        line.Status = status;
+        _context.Update(line);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { newStatus = line.Status });
+    }
+
+    // GET: ProductionLines/StartLine/5
+    [HttpGet]
+    public async Task<IActionResult> StartLine(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var line = await _context.ProductionLines
+            .Include(pl => pl.CurrentWorkOrder)
+            .ThenInclude(wo => wo != null ? wo.Product : null)
+            .FirstOrDefaultAsync(m => m.Id == id);
+
+        if (line == null) return NotFound();
+
+        // Получаем все pending заказы, которые можно запустить
+        ViewBag.AvailableOrders = await _context.WorkOrders
+            .Where(wo => wo.Status == "Pending" && wo.ProductionLineId == null)
+            .Include(wo => wo.Product)
+            .ToListAsync();
+
+        return View(line);
+    }
+
+    // POST: ProductionLines/StartLine
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartLine(int id, int? workOrderId)
+    {
+        var line = await _context.ProductionLines.FindAsync(id);
+        if (line == null) return NotFound();
+
+        if (workOrderId.HasValue)
+        {
+            var order = await _context.WorkOrders
+                .Include(wo => wo.Product)
+                .ThenInclude(p => p.MaterialsNeeded)
+                .ThenInclude(pm => pm.Material)
+                .FirstOrDefaultAsync(wo => wo.Id == workOrderId.Value);
+
+            if (order == null) return NotFound();
+
+            // Проверяем материалы
+            bool hasSufficientMaterials = true;
+            if (order.Product?.MaterialsNeeded != null)
+            {
+                foreach (var pm in order.Product.MaterialsNeeded)
+                {
+                    var materialInStock = await _context.Materials
+                        .Where(m => m.Id == pm.MaterialId)
+                        .Select(m => m.Quantity)
+                        .FirstOrDefaultAsync();
+                    
+                    if (materialInStock < pm.QuantityNeeded * order.Quantity)
+                    {
+                        hasSufficientMaterials = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasSufficientMaterials)
+            {
+                TempData["ErrorMessage"] = "Недостаточно материалов для запуска этого заказа.";
+                return RedirectToAction(nameof(StartLine), new { id = line.Id });
+            }
+
+            // Назначаем и запускаем заказ
+            order.ProductionLineId = id;
+            order.Status = "InProgress";
+            line.CurrentWorkOrderId = order.Id;
+            line.Status = "Active";
+            
+            await _context.SaveChangesAsync();
+            _logger.LogInformation($"Заказ #{order.Id} запущен на линии #{id}");
+        }
+        else
+        {
+            // Запускаем линию без заказа (просто меняем статус)
+            line.Status = "Active";
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+}
+==================== END OF Controllers/ProductionLinesController.cs ====================
+
+>>> FILE: Controllers/ProductsController.cs <<<
+-----------------------------------------
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductionManagementSystem.Web.Data;
+using ProductionManagementSystem.Web.Models;
+
+namespace ProductionManagementSystem.Web.Controllers;
+
+public class ProductsController : Controller
+{
+    private readonly ApplicationDbContext _context;
+
+    public ProductsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    // GET: Products
+    public async Task<IActionResult> Index(string category = "", string searchString = "")
+    {
+        IQueryable<Product> query = _context.Products
+            .Include(p => p.MaterialsNeeded)
+            .ThenInclude(pm => pm.Material);
+
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(p => p.Category == category);
+
+        if (!string.IsNullOrEmpty(searchString))
+            query = query.Where(p => p.Name.Contains(searchString));
+
+        var products = await query.OrderBy(p => p.Name).ToListAsync();
+        return View(products);
+    }
+
+    // GET: Products/Create
+    public async Task<IActionResult> Create()
+    {
+        var viewModel = new ProductFormViewModel
+        {
+            Product = new Product(),
+            AvailableMaterials = await _context.Materials.ToListAsync(),
+            SelectedMaterials = new List<ProductMaterialViewModel>()
+        };
+        return View(viewModel);
+    }
+
+    // POST: Products/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(ProductFormViewModel viewModel,
+        [FromForm] string selectedMaterialIds,
+        [FromForm] string materialQuantities)
+    {
+        if (ModelState.IsValid)
+        {
+            var product = viewModel.Product;
+            _context.Products.Add(product);
+            await _context.SaveChangesAsync();
+
+            // Привязка материалов
+            if (!string.IsNullOrEmpty(selectedMaterialIds))
+            {
+                var ids = selectedMaterialIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(int.Parse).ToList();
+                var quantities = !string.IsNullOrEmpty(materialQuantities)
+                    ? materialQuantities.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(decimal.Parse).ToList()
+                    : new List<decimal>();
+
+                for (int i = 0; i < ids.Count; i++)
+                {
+                    if (quantities.Count > i && quantities[i] > 0)
+                    {
+                        _context.ProductMaterials.Add(new ProductMaterial
+                        {
+                            ProductId = product.Id,
+                            MaterialId = ids[i],
+                            QuantityNeeded = quantities[i]
+                        });
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        viewModel.AvailableMaterials = await _context.Materials.ToListAsync();
+        return View(viewModel);
+    }
+
+    // GET: Products/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var product = await _context.Products
+            .Include(p => p.MaterialsNeeded)
+            .ThenInclude(pm => pm.Material)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (product == null) return NotFound();
+
+        var viewModel = new ProductFormViewModel
+        {
+            Product = product,
+            AvailableMaterials = await _context.Materials.ToListAsync(),
+            SelectedMaterials = product.MaterialsNeeded.Select(pm => new ProductMaterialViewModel
+            {
+                MaterialId = pm.MaterialId,
+                MaterialName = pm.Material.Name,
+                QuantityNeeded = pm.QuantityNeeded
+            }).ToList()
+        };
+        return View(viewModel);
+    }
+
+    // POST: Products/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, ProductFormViewModel viewModel,
+        [FromForm] string selectedMaterialIds,
+        [FromForm] string materialQuantities)
+    {
+        if (id != viewModel.Product.Id) return NotFound();
+
+        if (ModelState.IsValid)
+        {
+            var product = await _context.Products
+                .Include(p => p.MaterialsNeeded)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (product == null) return NotFound();
+
+            // Обновление основных полей
+            product.Name = viewModel.Product.Name;
+            product.Description = viewModel.Product.Description;
+            product.Specifications = viewModel.Product.Specifications;
+            product.Category = viewModel.Product.Category;
+            product.MinimalStock = viewModel.Product.MinimalStock;
+            product.ProductionTimePerUnit = viewModel.Product.ProductionTimePerUnit;
+
+            // Обновление материалов
+            var existingLinks = product.MaterialsNeeded.ToList();
+            
+            var newMaterialIds = string.IsNullOrEmpty(selectedMaterialIds)
+                ? new List<int>()
+                : selectedMaterialIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(int.Parse).ToList();
+
+            // Удаляем связи, которые больше не выбраны
+            foreach (var link in existingLinks)
+            {
+                if (!newMaterialIds.Contains(link.MaterialId))
+                {
+                    _context.ProductMaterials.Remove(link);
+                }
+            }
+
+            // Добавляем/обновляем выбранные связи
+            var quantities = !string.IsNullOrEmpty(materialQuantities)
+                ? materialQuantities.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(decimal.Parse).ToList()
+                : new List<decimal>();
+
+            for (int i = 0; i < newMaterialIds.Count; i++)
+            {
+                var existing = existingLinks.FirstOrDefault(l => l.MaterialId == newMaterialIds[i]);
+                if (existing != null)
+                {
+                    existing.QuantityNeeded = quantities.Count > i ? quantities[i] : existing.QuantityNeeded;
+                }
+                else if (quantities.Count > i && quantities[i] > 0)
+                {
+                    _context.ProductMaterials.Add(new ProductMaterial
+                    {
+                        ProductId = product.Id,
+                        MaterialId = newMaterialIds[i],
+                        QuantityNeeded = quantities[i]
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        viewModel.AvailableMaterials = await _context.Materials.ToListAsync();
+        return View(viewModel);
+    }
+
+    // GET: Products/Delete/5
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (product == null) return NotFound();
+
+        return View(product);
+    }
+
+    // POST: Products/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product != null)
+        {
+            // Удаляем связанные материалы
+            var productMaterials = _context.ProductMaterials.Where(pm => pm.ProductId == id);
+            _context.ProductMaterials.RemoveRange(productMaterials);
+            
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+        }
+        return RedirectToAction(nameof(Index));
+    }
+}
+==================== END OF Controllers/ProductsController.cs ====================
+
+>>> FILE: Controllers/WorkOrdersController.cs <<<
+-------------------------------------------
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductionManagementSystem.Web.Data;
+using ProductionManagementSystem.Web.Models;
+using Microsoft.Extensions.Logging;
+
+namespace ProductionManagementSystem.Web.Controllers;
+
+public class WorkOrdersController : Controller
+{
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<WorkOrdersController> _logger;
+
+    public WorkOrdersController(ApplicationDbContext context, ILogger<WorkOrdersController> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
+    // GET: WorkOrders
+    public async Task<IActionResult> Index(string status = "", DateTime? date = null)
+    {
+        IQueryable<WorkOrder> query = _context.WorkOrders
+            .Include(wo => wo.Product)
+            .Include(wo => wo.ProductionLine);
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            query = query.Where(wo => wo.Status == status);
+        }
+
+        if (date.HasValue)
+        {
+            query = query.Where(wo => wo.EstimatedEndDate.Date == date.Value.Date);
+        }
+
+        var workOrders = await query.OrderBy(wo => wo.StartDate).ToListAsync();
+        return View(workOrders);
+    }
+
+    // GET: WorkOrders/Create
+    public async Task<IActionResult> Create()
+    {
+        ViewBag.Products = await _context.Products.ToListAsync();
+        ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+        return View();
+    }
+
+    // POST: WorkOrders/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([Bind("ProductId,Quantity,StartDate,ProductionLineId")] WorkOrder workOrder)
+    {
+        _logger.LogInformation($"=== CREATE POST CALLED ===");
+        _logger.LogInformation($"ProductId: {workOrder.ProductId}");
+        _logger.LogInformation($"Quantity: {workOrder.Quantity}");
+        _logger.LogInformation($"StartDate: {workOrder.StartDate}");
+        _logger.LogInformation($"ProductionLineId: {workOrder.ProductionLineId}");
+        _logger.LogInformation($"ModelState.IsValid: {ModelState.IsValid}");
+        
+        if (!ModelState.IsValid)
+        {
+            _logger.LogError($"ModelState has errors");
+            foreach (var key in ModelState.Keys)
+            {
+                var state = ModelState[key];
+                if (state.Errors.Count > 0)
+                {
+                    foreach (var error in state.Errors)
+                    {
+                        _logger.LogError($"  [{key}]: {error.ErrorMessage}");
+                    }
+                }
+            }
+        }
+
+        if (ModelState.IsValid)
+        {
+            var product = await _context.Products.FindAsync(workOrder.ProductId);
+            if (product == null)
+            {
+                ModelState.AddModelError("", "Выбранный продукт не найден.");
+                ViewBag.Products = await _context.Products.ToListAsync();
+                ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+                return View(workOrder);
+            }
+
+            var line = await _context.ProductionLines.FindAsync(workOrder.ProductionLineId);
+            float efficiency = line?.EfficiencyFactor ?? 1.0f;
+
+            int totalTimeMinutes = (int)Math.Ceiling((workOrder.Quantity * product.ProductionTimePerUnit) / efficiency);
+            workOrder.EstimatedEndDate = workOrder.StartDate.AddMinutes(totalTimeMinutes);
+
+            workOrder.Status = "Pending";
+            workOrder.Progress = 0;
+
+            // Проверка наличия материалов
+            bool hasSufficientMaterials = true;
+            if (product.MaterialsNeeded != null)
+            {
+                foreach (var pm in product.MaterialsNeeded)
+                {
+                    var materialInStock = await _context.Materials
+                        .Where(m => m.Id == pm.MaterialId)
+                        .Select(m => m.Quantity)
+                        .FirstOrDefaultAsync();
+                    
+                    if (materialInStock < pm.QuantityNeeded * workOrder.Quantity)
+                    {
+                        hasSufficientMaterials = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasSufficientMaterials)
+            {
+                ModelState.AddModelError("", "Недостаточно материалов для выполнения заказа.");
+                ViewBag.Products = await _context.Products.ToListAsync();
+                ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+                return View(workOrder);
+            }
+
+            _context.Add(workOrder);
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        ViewBag.Products = await _context.Products.ToListAsync();
+        ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+        return View(workOrder);
+    }
+
+    // GET: WorkOrders/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var workOrder = await _context.WorkOrders
+            .Include(wo => wo.Product)
+            .Include(wo => wo.ProductionLine)
+            .FirstOrDefaultAsync(m => m.Id == id);
+
+        if (workOrder == null) return NotFound();
+
+        ViewBag.Products = await _context.Products.ToListAsync();
+        ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+        return View(workOrder);
+    }
+
+    // POST: WorkOrders/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,ProductId,ProductionLineId,Quantity,StartDate,EstimatedEndDate,Status")] WorkOrder workOrder)
+    {
+        if (id != workOrder.Id) return NotFound();
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                var product = await _context.Products.FindAsync(workOrder.ProductId);
+                if (product == null)
+                {
+                    ModelState.AddModelError("", "Выбранный продукт не найден.");
+                    ViewBag.Products = await _context.Products.ToListAsync();
+                    ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+                    return View(workOrder);
+                }
+
+                var line = await _context.ProductionLines.FindAsync(workOrder.ProductionLineId);
+                float efficiency = line?.EfficiencyFactor ?? 1.0f;
+
+                int totalTimeMinutes = (int)Math.Ceiling((workOrder.Quantity * product.ProductionTimePerUnit) / efficiency);
+                workOrder.EstimatedEndDate = workOrder.StartDate.AddMinutes(totalTimeMinutes);
+
+                _context.Update(workOrder);
+                workOrder.Progress = 0;
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.WorkOrders.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        ViewBag.Products = await _context.Products.ToListAsync();
+        ViewBag.Lines = await _context.ProductionLines.ToListAsync();
+        return View(workOrder);
+    }
+
+    // POST: WorkOrders/Cancel/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(int id)
+    {
+        var order = await _context.WorkOrders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        order.Status = "Cancelled";
+        
+        // Если заказ был текущим на линии, сбрасываем CurrentWorkOrderId
+        if (order.ProductionLineId.HasValue)
+        {
+            var line = await _context.ProductionLines.FindAsync(order.ProductionLineId.Value);
+            if (line?.CurrentWorkOrderId == order.Id)
+            {
+                line.CurrentWorkOrderId = null;
+            }
+        }
+        
+        await _context.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: WorkOrders/UpdateProgress/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateProgress(int id, [FromBody] UpdateProgressDto requestData)
+    {
+        if (requestData == null || requestData.Percent < 0 || requestData.Percent > 100)
+            return BadRequest("Percent must be between 0 and 100.");
+
+        var order = await _context.WorkOrders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        // Обновляем прогресс (если поле есть в модели)
+        // order.ProgressPercentage = requestData.Percent;
+        order.Progress = requestData.Percent;
+
+        if (requestData.Percent == 100)
+        {
+            order.Status = "Completed";
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(new { newPercent = requestData.Percent });
+    }
+
+    // GET: api/orders/{id}/details
+    [HttpGet]
+    public async Task<IActionResult> GetOrderDetails(int id)
+    {
+        var orderDetails = await _context.WorkOrders
+            .Where(wo => wo.Id == id)
+            .Include(wo => wo.Product)
+            .ThenInclude(p => p.MaterialsNeeded)
+            .ThenInclude(pm => pm.Material)
+            .Include(wo => wo.ProductionLine)
+            .Select(wo => new
+            {
+                Id = wo.Id,
+                ProductName = wo.Product.Name,
+                ProductDescription = wo.Product.Description,
+                Quantity = wo.Quantity,
+                StartDate = wo.StartDate,
+                EstimatedEndDate = wo.EstimatedEndDate,
+                Status = wo.Status == "Pending" ? "Ожидает" :
+                        wo.Status == "InProgress" ? "В процессе" :
+                        wo.Status == "Completed" ? "Завершён" :
+                        wo.Status == "Cancelled" ? "Отменён" :
+                        wo.Status,
+                ProductionLineName = wo.ProductionLine != null ? wo.ProductionLine.Name : "Не назначена",
+                MaterialsNeeded = wo.Product.MaterialsNeeded.Select(pm => new
+                {
+                    Name = pm.Material.Name,
+                    Unit = pm.Material.UnitOfMeasure,
+                    NeededPerUnit = pm.QuantityNeeded,
+                    TotalNeeded = pm.QuantityNeeded * wo.Quantity
+                }).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (orderDetails == null) return NotFound();
+
+        return Json(orderDetails);
+    }
+
+    // GET: WorkOrders/Delete/5
+    [HttpGet]
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var workOrder = await _context.WorkOrders
+            .Include(w => w.Product)
+            .FirstOrDefaultAsync(w => w.Id == id);
+        
+        if (workOrder == null) return NotFound();
+
+        return View(workOrder);
+    }
+
+    // POST: WorkOrders/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var workOrder = await _context.WorkOrders.FindAsync(id);
+        if (workOrder != null)
+        {
+            // Отвязка от линии при удалении
+            if (workOrder.ProductionLineId.HasValue)
+            {
+                var line = await _context.ProductionLines.FindAsync(workOrder.ProductionLineId.Value);
+                if (line?.CurrentWorkOrderId == id)
+                {
+                    line.CurrentWorkOrderId = null;
+                }
+            }
+
+            _context.WorkOrders.Remove(workOrder);
+            await _context.SaveChangesAsync();
+        }
+        return RedirectToAction(nameof(Index));
+    }
+
+    // GET: api/WorkOrders/GetProgress/4
+    [HttpGet]
+    [Route("api/WorkOrders/GetProgress/{id}")]
+    public async Task<IActionResult> GetProgress(int id)
+    {
+        var order = await _context.WorkOrders.FindAsync(id);
+        if (order == null) return NotFound();
+
+        return Json(new { progress = order.Progress, status = order.Status });
+    }
+}
+==================== END OF Controllers/WorkOrdersController.cs ====================
+
+--- DIRECTORY: Data ---
+
+>>> FILE: Data/ApplicationDbContext.cs <<<
+------------------------------------
+#nullable enable
+using Microsoft.EntityFrameworkCore;
+using ProductionManagementSystem.Web.Models;
+
+namespace ProductionManagementSystem.Web.Data;
+
+public class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<Product> Products { get; set; }
+    public DbSet<ProductionLine> ProductionLines { get; set; }
+    public DbSet<Material> Materials { get; set; }
+    public DbSet<ProductMaterial> ProductMaterials { get; set; }
+    public DbSet<WorkOrder> WorkOrders { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Product - ProductMaterial
+        modelBuilder.Entity<Product>()
+            .HasMany(p => p.MaterialsNeeded)
+            .WithOne(pm => pm.Product)
+            .HasForeignKey(pm => pm.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Material - ProductMaterial
+        modelBuilder.Entity<Material>()
+            .HasMany(m => m.ProductsUsedIn)
+            .WithOne(pm => pm.Material)
+            .HasForeignKey(pm => pm.MaterialId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ProductionLine - WorkOrder
+        modelBuilder.Entity<ProductionLine>()
+            .HasMany(pl => pl.AssignedWorkOrders)
+            .WithOne(wo => wo.ProductionLine)
+            .HasForeignKey(wo => wo.ProductionLineId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ProductionLine>()
+            .HasOne(pl => pl.CurrentWorkOrder)
+            .WithMany()
+            .HasForeignKey(pl => pl.CurrentWorkOrderId)
+            .OnDelete(DeleteBehavior.SetNull);
+        
+        modelBuilder.Entity<ProductionLine>()
+            .HasIndex(p => p.Name)
+            .IsUnique();
+
+        // WorkOrder - Product
+        modelBuilder.Entity<WorkOrder>()
+            .HasOne(wo => wo.Product)
+            .WithMany(p => p.WorkOrders)
+            .HasForeignKey(wo => wo.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Уникальные индексы
+        modelBuilder.Entity<Material>()
+            .HasIndex(m => m.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<Product>()
+            .HasIndex(p => p.Name)
+            .IsUnique();
+
+        // Составной первичный ключ для ProductMaterial
+        modelBuilder.Entity<ProductMaterial>()
+            .HasKey(t => new { t.ProductId, t.MaterialId });
+    }
+}
+==================== END OF Data/ApplicationDbContext.cs ====================
+
+--- DIRECTORY: Migrations ---
+
+>>> FILE: Migrations/20260519113220_InitialCreate.Designer.cs <<<
+-----------------------------------------------------------
+﻿// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using ProductionManagementSystem.Web.Data;
+
+#nullable disable
+
+namespace ProductionManagementSystem.Web.Migrations
+{
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260519113220_InitialCreate")]
+    partial class InitialCreate
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("MinimalStock")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Materials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MinimalStock")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductionTimePerUnit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Specifications")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaterialId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("QuantityNeeded")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ProductId", "MaterialId");
+
+                    b.HasIndex("MaterialId");
+
+                    b.ToTable("ProductMaterials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CurrentWorkOrderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float>("EfficiencyFactor")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentWorkOrderId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ProductionLines");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EstimatedEndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.ToTable("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Material", "Material")
+                        .WithMany("ProductsUsedIn")
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("MaterialsNeeded")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.WorkOrder", "CurrentWorkOrder")
+                        .WithMany()
+                        .HasForeignKey("CurrentWorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CurrentWorkOrder");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.ProductionLine", "ProductionLine")
+                        .WithMany("AssignedWorkOrders")
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionLine");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Navigation("ProductsUsedIn");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Navigation("MaterialsNeeded");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Navigation("AssignedWorkOrders");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+==================== END OF Migrations/20260519113220_InitialCreate.Designer.cs ====================
+
+>>> FILE: Migrations/20260519113220_InitialCreate.cs <<<
+--------------------------------------------------
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace ProductionManagementSystem.Web.Migrations
+{
+    /// <inheritdoc />
+    public partial class InitialCreate : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "Materials",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Quantity = table.Column<decimal>(type: "TEXT", nullable: false),
+                    UnitOfMeasure = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    MinimalStock = table.Column<decimal>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Materials", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Products",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    Specifications = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    Category = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    MinimalStock = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProductionTimePerUnit = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Products", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductMaterials",
+                columns: table => new
+                {
+                    ProductId = table.Column<int>(type: "INTEGER", nullable: false),
+                    MaterialId = table.Column<int>(type: "INTEGER", nullable: false),
+                    QuantityNeeded = table.Column<decimal>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductMaterials", x => new { x.ProductId, x.MaterialId });
+                    table.ForeignKey(
+                        name: "FK_ProductMaterials_Materials_MaterialId",
+                        column: x => x.MaterialId,
+                        principalTable: "Materials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProductMaterials_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductionLines",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    EfficiencyFactor = table.Column<float>(type: "REAL", nullable: false),
+                    CurrentWorkOrderId = table.Column<int>(type: "INTEGER", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductionLines", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkOrders",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ProductId = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProductionLineId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Quantity = table.Column<int>(type: "INTEGER", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EstimatedEndDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Progress = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkOrders", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkOrders_ProductionLines_ProductionLineId",
+                        column: x => x.ProductionLineId,
+                        principalTable: "ProductionLines",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_WorkOrders_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Materials_Name",
+                table: "Materials",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionLines_CurrentWorkOrderId",
+                table: "ProductionLines",
+                column: "CurrentWorkOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionLines_Name",
+                table: "ProductionLines",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductMaterials_MaterialId",
+                table: "ProductMaterials",
+                column: "MaterialId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Products_Name",
+                table: "Products",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkOrders_ProductId",
+                table: "WorkOrders",
+                column: "ProductId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkOrders_ProductionLineId",
+                table: "WorkOrders",
+                column: "ProductionLineId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_ProductionLines_WorkOrders_CurrentWorkOrderId",
+                table: "ProductionLines",
+                column: "CurrentWorkOrderId",
+                principalTable: "WorkOrders",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_ProductionLines_WorkOrders_CurrentWorkOrderId",
+                table: "ProductionLines");
+
+            migrationBuilder.DropTable(
+                name: "ProductMaterials");
+
+            migrationBuilder.DropTable(
+                name: "Materials");
+
+            migrationBuilder.DropTable(
+                name: "WorkOrders");
+
+            migrationBuilder.DropTable(
+                name: "ProductionLines");
+
+            migrationBuilder.DropTable(
+                name: "Products");
+        }
+    }
+}
+
+==================== END OF Migrations/20260519113220_InitialCreate.cs ====================
+
+>>> FILE: Migrations/20260519120154_AddProgressToWorkOrder.Designer.cs <<<
+--------------------------------------------------------------------
+﻿// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using ProductionManagementSystem.Web.Data;
+
+#nullable disable
+
+namespace ProductionManagementSystem.Web.Migrations
+{
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260519120154_AddProgressToWorkOrder")]
+    partial class AddProgressToWorkOrder
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("MinimalStock")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Materials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MinimalStock")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductionTimePerUnit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Specifications")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaterialId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("QuantityNeeded")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ProductId", "MaterialId");
+
+                    b.HasIndex("MaterialId");
+
+                    b.ToTable("ProductMaterials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CurrentWorkOrderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float>("EfficiencyFactor")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentWorkOrderId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ProductionLines");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EstimatedEndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.ToTable("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Material", "Material")
+                        .WithMany("ProductsUsedIn")
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("MaterialsNeeded")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.WorkOrder", "CurrentWorkOrder")
+                        .WithMany()
+                        .HasForeignKey("CurrentWorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CurrentWorkOrder");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.ProductionLine", "ProductionLine")
+                        .WithMany("AssignedWorkOrders")
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionLine");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Navigation("ProductsUsedIn");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Navigation("MaterialsNeeded");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Navigation("AssignedWorkOrders");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+==================== END OF Migrations/20260519120154_AddProgressToWorkOrder.Designer.cs ====================
+
+>>> FILE: Migrations/20260519120154_AddProgressToWorkOrder.cs <<<
+-----------------------------------------------------------
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace ProductionManagementSystem.Web.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddProgressToWorkOrder : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+
+        }
+    }
+}
+
+==================== END OF Migrations/20260519120154_AddProgressToWorkOrder.cs ====================
+
+>>> FILE: Migrations/ApplicationDbContextModelSnapshot.cs <<<
+-------------------------------------------------------
+﻿// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using ProductionManagementSystem.Web.Data;
+
+#nullable disable
+
+namespace ProductionManagementSystem.Web.Migrations
+{
+    [DbContext(typeof(ApplicationDbContext))]
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("MinimalStock")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Materials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MinimalStock")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductionTimePerUnit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Specifications")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaterialId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("QuantityNeeded")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ProductId", "MaterialId");
+
+                    b.HasIndex("MaterialId");
+
+                    b.ToTable("ProductMaterials");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CurrentWorkOrderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float>("EfficiencyFactor")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentWorkOrderId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ProductionLines");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EstimatedEndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.ToTable("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductMaterial", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Material", "Material")
+                        .WithMany("ProductsUsedIn")
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("MaterialsNeeded")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.WorkOrder", "CurrentWorkOrder")
+                        .WithMany()
+                        .HasForeignKey("CurrentWorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CurrentWorkOrder");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.WorkOrder", b =>
+                {
+                    b.HasOne("ProductionManagementSystem.Web.Models.Product", "Product")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProductionManagementSystem.Web.Models.ProductionLine", "ProductionLine")
+                        .WithMany("AssignedWorkOrders")
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionLine");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Material", b =>
+                {
+                    b.Navigation("ProductsUsedIn");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.Product", b =>
+                {
+                    b.Navigation("MaterialsNeeded");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("ProductionManagementSystem.Web.Models.ProductionLine", b =>
+                {
+                    b.Navigation("AssignedWorkOrders");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+==================== END OF Migrations/ApplicationDbContextModelSnapshot.cs ====================
+
+--- DIRECTORY: Models ---
+
+>>> FILE: Models/AddStockDto.cs <<<
+-----------------------------
+namespace ProductionManagementSystem.Web.Models;
+
+public class AddStockDto
+{
+    public decimal Amount { get; set; }
+}
+==================== END OF Models/AddStockDto.cs ====================
+
+>>> FILE: Models/ErrorViewModel.cs <<<
+--------------------------------
+namespace ProductionManagementSystem.Web.Models;
+
+public class ErrorViewModel
+{
+    public string? RequestId { get; set; }
+
+    public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+}
+
+==================== END OF Models/ErrorViewModel.cs ====================
+
+>>> FILE: Models/Material.cs <<<
+--------------------------
+#nullable enable
+using System.ComponentModel.DataAnnotations;
+
+namespace ProductionManagementSystem.Web.Models;
+
+public class Material
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Поле 'Название' обязательно для заполнения.")]
+    [StringLength(200, ErrorMessage = "Длина названия не должна превышать 200 символов.")]
+    public string Name { get; set; } = string.Empty;
+
+    [Range(0, double.MaxValue, ErrorMessage = "Количество должно быть неотрицательным числом.")]
+    public decimal Quantity { get; set; }
+
+    [Required(ErrorMessage = "Поле 'Единицы измерения' обязательно для заполнения.")]
+    [StringLength(20, ErrorMessage = "Длина поля не должна превышать 20 символов.")]
+    public string UnitOfMeasure { get; set; } = string.Empty;
+
+    [Range(0, double.MaxValue, ErrorMessage = "Минимальный запас должен быть неотрицательным числом.")]
+    public decimal MinimalStock { get; set; }
+
+    public List<ProductMaterial> ProductsUsedIn { get; set; } = new();
+}
+==================== END OF Models/Material.cs ====================
+
+>>> FILE: Models/Product.cs <<<
+-------------------------
+#nullable enable
+using System.ComponentModel.DataAnnotations;
+
+namespace ProductionManagementSystem.Web.Models;
+
+public class Product
+{
+    public int Id { get; set; }
+
+    [Required(ErrorMessage = "Поле 'Название' обязательно для заполнения.")]
+    [StringLength(200, ErrorMessage = "Длина поля 'Название' не должна превышать 200 символов.")]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(1000, ErrorMessage = "Длина поля 'Описание' не должна превышать 1000 символов.")]
+    public string? Description { get; set; }
+
+    [StringLength(1000, ErrorMessage = "Длина поля 'Технические характеристики' не должна превышать 1000 символов.")]
+    public string? Specifications { get; set; }
+
+    [StringLength(100, ErrorMessage = "Длина поля 'Категория' не должна превышать 100 символов.")]
+    public string? Category { get; set; }
+
+    [Range(0, int.MaxValue, ErrorMessage = "Поле 'Минимальный запас' должно быть неотрицательным числом.")]
+    public int MinimalStock { get; set; } = 0;
+
+    [Range(0, int.MaxValue, ErrorMessage = "Поле 'Время производства' должно быть неотрицательным числом.")]
+    public int ProductionTimePerUnit { get; set; }
+
+    public List<ProductMaterial> MaterialsNeeded { get; set; } = new();
+    public List<WorkOrder> WorkOrders { get; set; } = new();
+}
+==================== END OF Models/Product.cs ====================
+
+>>> FILE: Models/ProductFormViewModel.cs <<<
+--------------------------------------
+namespace ProductionManagementSystem.Web.Models;
+
+/// <summary>
+/// ViewModel для форм создания/редактирования продукта
+/// </summary>
+public class ProductFormViewModel
+{
+    public Product Product { get; set; } = null!;
+    public List<Material> AvailableMaterials { get; set; } = new();
+    public List<ProductMaterialViewModel> SelectedMaterials { get; set; } = new();
+}
+
+/// <summary>
+/// ViewModel для отображения материала в форме продукта
+/// </summary>
+public class ProductMaterialViewModel
+{
+    public int MaterialId { get; set; }
+    public string MaterialName { get; set; } = string.Empty;
+    public decimal QuantityNeeded { get; set; }
+}
+==================== END OF Models/ProductFormViewModel.cs ====================
+
+>>> FILE: Models/ProductMaterial.cs <<<
+---------------------------------
+#nullable enable
+// using System.ComponentModel.DataAnnotations.Schema; // Убираем, если не используется для других целей
+// using System.ComponentModel.DataAnnotations; // Убираем, если не используется для других целей
+
+namespace ProductionManagementSystem.Web.Models;
+
+// Убираем [PrimaryKey(nameof(ProductId), nameof(MaterialId))] - не поддерживается в текущей версии
+public class ProductMaterial
+{
+    public int ProductId { get; set; }
+    // Убираем [ForeignKey("ProductId")] - EF Core сам определит связь по соглашению
+    public Product Product { get; set; } = null!; // Инициализируется EF
+
+    public int MaterialId { get; set; }
+    // Убираем [ForeignKey("MaterialId")] - EF Core сам определит связь по соглашению
+    public Material Material { get; set; } = null!; // Инициализируется EF
+
+    /// <summary>
+    /// Необходимое количество материала для производства одной единицы продукта.
+    /// </summary>
+    public decimal QuantityNeeded { get; set; }
+}
+==================== END OF Models/ProductMaterial.cs ====================
+
+>>> FILE: Models/ProductionLine.cs <<<
+--------------------------------
+#nullable enable
+using System.ComponentModel.DataAnnotations;
+
+namespace ProductionManagementSystem.Web.Models;
+
+public class ProductionLine
+{
+    public int Id { get; set; }
+
+    [Required]
+    [StringLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(50)]
+    public string Status { get; set; } = "Stopped"; // "Active" или "Stopped"
+
+    /// <summary>
+    /// Коэффициент эффективности (0.5 - 2.0)
+    /// </summary>
+    [Range(0.5f, 2.0f, ErrorMessage = "Коэффициент эффективности должен быть в диапазоне от 0.5 до 2.0.")]
+    public float EfficiencyFactor { get; set; } = 1.0f;
+
+    // Внешний ключ на текущий заказ (может быть null)
+    public int? CurrentWorkOrderId { get; set; }
+
+    // Навигационное свойство
+    public WorkOrder? CurrentWorkOrder { get; set; }
+    public List<WorkOrder> AssignedWorkOrders { get; set; } = new();
+}
+==================== END OF Models/ProductionLine.cs ====================
+
+>>> FILE: Models/UpdateProgressDto.cs <<<
+-----------------------------------
+namespace ProductionManagementSystem.Web.Models;
+
+/// <summary>
+/// DTO для обновления прогресса выполнения заказа
+/// </summary>
+public class UpdateProgressDto
+{
+    /// <summary>
+    /// Процент выполнения (0-100)
+    /// </summary>
+    public int Percent { get; set; }
+}
+==================== END OF Models/UpdateProgressDto.cs ====================
+
+>>> FILE: Models/UpdateStatusDto.cs <<<
+---------------------------------
+namespace ProductionManagementSystem.Web.Models;
+
+/// <summary>
+/// DTO для обновления статуса производственной линии
+/// </summary>
+public class UpdateStatusDto
+{
+    /// <summary>
+    /// Новый статус: "Active" или "Stopped"
+    /// </summary>
+    public string Status { get; set; } = string.Empty;
+}
+==================== END OF Models/UpdateStatusDto.cs ====================
+
+>>> FILE: Models/WorkOrder.cs <<<
+---------------------------
+#nullable enable
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+namespace ProductionManagementSystem.Web.Models;
+
+public class WorkOrder
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
+    public int? ProductionLineId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "Количество должно быть положительным числом.")]
+    public int Quantity { get; set; }
+    public DateTime StartDate { get; set; }
+    [BindNever]
+    public DateTime EstimatedEndDate { get; set; }
+    [StringLength(50)]
+    public string Status { get; set; } = "Pending";
+
+    // Новое поле для прогресса
+    public int Progress { get; set; } = 0; // Инициализируем нулём
+
+    // Навигационные свойства
+    public Product? Product { get; set; }
+    public ProductionLine? ProductionLine { get; set; }
+}
+==================== END OF Models/WorkOrder.cs ====================
+
+--- DIRECTORY: Properties ---
+
+>>> FILE: Properties/launchSettings.json <<<
+--------------------------------------
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5028",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:7214;http://localhost:5028",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+
+==================== END OF Properties/launchSettings.json ====================
+
+--- DIRECTORY: Services ---
+
+>>> FILE: Services/OrderCompletionService.cs <<<
+------------------------------------------
+// Services/OrderCompletionService.cs
+using ProductionManagementSystem.Web.Data;
+using Microsoft.EntityFrameworkCore;
+public class OrderCompletionService : BackgroundService
+{
+    private readonly IServiceProvider _services;
+    private readonly ILogger<OrderCompletionService> _logger;
+
+    public OrderCompletionService(IServiceProvider services, ILogger<OrderCompletionService> logger)
+    {
+        _services = services;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            using (var scope = _services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                
+                var now = DateTime.Now;
+                var ordersToComplete = await context.WorkOrders
+                    .Where(wo => wo.Status == "InProgress" && wo.EstimatedEndDate <= now)
+                    .ToListAsync(stoppingToken);
+
+                foreach (var order in ordersToComplete)
+                {
+                    order.Status = "Completed";
+                    _logger.LogInformation($"Заказ #{order.Id} автоматически завершён");
+                }
+
+                if (ordersToComplete.Any())
+                {
+                    await context.SaveChangesAsync(stoppingToken);
+                }
+            }
+
+            // Проверять каждые 5 минут
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        }
+    }
+}
+==================== END OF Services/OrderCompletionService.cs ====================
+
+--- DIRECTORY: Views ---
+
+>>> FILE: Views/_ViewImports.cshtml <<<
+---------------------------------
+﻿@using ProductionManagementSystem.Web
+@using ProductionManagementSystem.Web.Models
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+==================== END OF Views/_ViewImports.cshtml ====================
+
+>>> FILE: Views/_ViewStart.cshtml <<<
+-------------------------------
+﻿@{
+    Layout = "_Layout";
+}
+
+==================== END OF Views/_ViewStart.cshtml ====================
+
+--- DIRECTORY: Views/Home ---
+
+>>> FILE: Views/Home/Index.cshtml <<<
+-------------------------------
+﻿@{
+    ViewData["Title"] = "Главная"; // Заголовок установлен в HomeController, но можно переопределить здесь
+}
+
+<div class="text-center">
+    <!-- Изменено: Приветственный текст -->
+    <h1 class="display-4">Добро пожаловать в систему управления производством!</h1>
+    <p>Используйте навигационное меню для доступа к различным разделам.</p>
+    <!-- Добавлены ссылки на основные страницы -->
+    <p><a asp-controller="Materials" asp-action="Index">Просмотреть список материалов</a></p>
+    <p><a asp-controller="Products" asp-action="Index">Просмотреть список продуктов</a></p>
+    <p><a asp-controller="WorkOrders" asp-action="Index">Просмотреть список заказов</a></p>
+    <p><a asp-controller="ProductionLines" asp-action="Index">Просмотреть производственные линии</a></p>
+</div>
+==================== END OF Views/Home/Index.cshtml ====================
+
+>>> FILE: Views/Home/Privacy.cshtml <<<
+---------------------------------
+﻿@{
+    ViewData["Title"] = "Конфиденциальность"; // Заголовок установлен в HomeController, но можно переопределить здесь
+}
+<!-- Изменено: Заголовок и текст на странице конфиденциальности -->
+<h1>@ViewData["Title"]</h1>
+
+<h2>Политика конфиденциальности</h2>
+
+<p>Используйте эту страницу для подробного описания политики конфиденциальности сайта.</p>
+==================== END OF Views/Home/Privacy.cshtml ====================
+
+--- DIRECTORY: Views/Materials ---
+
+>>> FILE: Views/Materials/Create.cshtml <<<
+-------------------------------------
+@model ProductionManagementSystem.Web.Models.Material
+
+@{
+    ViewData["Title"] = "Добавить материал";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="control-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" step="any" />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="UnitOfMeasure" class="control-label">Единицы измерения</label>
+        <input asp-for="UnitOfMeasure" class="form-control" />
+        <span asp-validation-for="UnitOfMeasure" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="MinimalStock" class="control-label">Минимальный запас</label>
+        <input asp-for="MinimalStock" class="form-control" type="number" step="any" />
+        <span asp-validation-for="MinimalStock" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Создать" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+==================== END OF Views/Materials/Create.cshtml ====================
+
+>>> FILE: Views/Materials/Delete.cshtml <<<
+-------------------------------------
+@model ProductionManagementSystem.Web.Models.Material
+
+@{
+    ViewData["Title"] = "Удалить материал";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Вы уверены, что хотите удалить этот материал?</h3>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            
+            <dt class="col-sm-3">Количество</dt>
+            <dd class="col-sm-9">@Model.Quantity @Model.UnitOfMeasure</dd>
+            
+            <dt class="col-sm-3">Единица измерения</dt>
+            <dd class="col-sm-9">@Model.UnitOfMeasure</dd>
+            
+            <dt class="col-sm-3">Минимальный запас</dt>
+            <dd class="col-sm-9">@Model.MinimalStock</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+</form>
+==================== END OF Views/Materials/Delete.cshtml ====================
+
+>>> FILE: Views/Materials/Edit.cshtml <<<
+-----------------------------------
+@model ProductionManagementSystem.Web.Models.Material
+
+@{
+    ViewData["Title"] = "Редактировать материал";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="control-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" step="any" />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="UnitOfMeasure" class="control-label">Единицы измерения</label>
+        <input asp-for="UnitOfMeasure" class="form-control" />
+        <span asp-validation-for="UnitOfMeasure" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="MinimalStock" class="control-label">Минимальный запас</label>
+        <input asp-for="MinimalStock" class="form-control" type="number" step="any" />
+        <span asp-validation-for="MinimalStock" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+==================== END OF Views/Materials/Edit.cshtml ====================
+
+>>> FILE: Views/Materials/Index.cshtml <<<
+------------------------------------
+@model IEnumerable<ProductionManagementSystem.Web.Models.Material>
+
+@{
+    ViewData["Title"] = "Панель материалов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+@Html.AntiForgeryToken()
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить материал</a>
+</p>
+
+<form method="get">
+    <div class="form-group mb-3">
+        <label for="low_stock_filter" class="form-check-label">Только с низким запасом</label>
+        <input type="checkbox" class="form-check-input" id="low_stock_filter" name="low_stock" value="true" @(ViewBag.LowStock ? "checked" : "") onchange="this.form.submit()">
+        <input type="hidden" name="low_stock" value="false" />
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Количество</th>
+            <th>Единицы измерения</th>
+            <th>Минимальный запас</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td class="@(item.Quantity <= item.MinimalStock ? "text-danger fw-bold" : "")">
+                    @Html.DisplayFor(modelItem => item.Quantity)
+                </td>
+                <td>@Html.DisplayFor(modelItem => item.UnitOfMeasure)</td>
+                <td>@Html.DisplayFor(modelItem => item.MinimalStock)</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="showAddStockModal(@item.Id, '@item.Name')">Пополнить</button>
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" 
+                       onclick="return confirm('Вы уверены, что хотите удалить материал \'@item.Name\'?')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Модальное окно для пополнения -->
+<div class="modal fade" id="addStockModal" tabindex="-1" aria-labelledby="addStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addStockModalLabel">Пополнить материал</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <p>Введите количество для пополнения <strong id="materialNameDisplay"></strong>:</p>
+                <input type="number" id="amountToAdd" class="form-control" step="any" min="0.01" placeholder="Введите количество" />
+                <div id="addStockError" class="text-danger mt-2" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="performAddStock()">Пополнить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMaterialId = null;
+
+    function showAddStockModal(materialId, materialName) {
+        currentMaterialId = materialId;
+        document.getElementById('materialNameDisplay').textContent = materialName;
+        document.getElementById('amountToAdd').value = '';
+        document.getElementById('addStockError').style.display = 'none';
+        
+        const modal = new bootstrap.Modal(document.getElementById('addStockModal'));
+        modal.show();
+    }
+
+    function performAddStock() {
+        const amountInput = document.getElementById('amountToAdd').value.trim();
+        
+        if (!amountInput) {
+            showError('Пожалуйста, введите количество.');
+            return;
+        }
+
+        const amount = parseFloat(amountInput);
+        if (isNaN(amount) || amount <= 0) {
+            showError('Количество должно быть положительным числом.');
+            return;
+        }
+
+        if (!currentMaterialId) {
+            showError('Ошибка: не указан материал.');
+            return;
+        }
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        
+        fetch(`/Materials/AddStock/${currentMaterialId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token
+            },
+            body: JSON.stringify({ amount: amount })
+        })
+        .then(response => {
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addStockModal')).hide();
+                alert('Запас успешно пополнен!');
+                location.reload();
+            } else {
+                return response.text().then(text => {
+                    showError('Ошибка: ' + text);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Произошла ошибка при выполнении запроса.');
+        });
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('addStockError');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    document.getElementById('addStockModal').addEventListener('hidden.bs.modal', function () {
+        currentMaterialId = null;
+    });
+</script>
+==================== END OF Views/Materials/Index.cshtml ====================
+
+--- DIRECTORY: Views/ProductionLines ---
+
+>>> FILE: Views/ProductionLines/Create.cshtml <<<
+-------------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Создать производственную линию";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create"> <!-- Важно: только asp-action, без asp-controller -->
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="control-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <!-- Status is set automatically to Stopped -->
+    <div class="form-group mb-3">
+        <label asp-for="EfficiencyFactor" class="control-label">Коэффициент эффективности (0.5 - 2.0)</label>
+        <input asp-for="EfficiencyFactor" class="form-control" type="number" step="0.1" min="0.5" max="2.0" value="1.0" />
+        <span asp-validation-for="EfficiencyFactor" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Создать" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a> <!-- Используем asp-action для ссылки на Index в том же контроллере -->
+    </div>
+</form>
+==================== END OF Views/ProductionLines/Create.cshtml ====================
+
+>>> FILE: Views/ProductionLines/Delete.cshtml <<<
+-------------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Удалить производственную линию";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Вы уверены, что хотите удалить эту линию?</h3>
+<p class="text-warning">Все назначенные заказы будут отвязаны от этой линии!</p>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            
+            <dt class="col-sm-3">Статус</dt>
+            <dd class="col-sm-9">
+                @(Model.Status == "Active" ? "Активна" : "Остановлена")
+            </dd>
+            
+            <dt class="col-sm-3">Коэффициент эффективности</dt>
+            <dd class="col-sm-9">@Model.EfficiencyFactor</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+</form>
+==================== END OF Views/ProductionLines/Delete.cshtml ====================
+
+>>> FILE: Views/ProductionLines/Edit.cshtml <<<
+-----------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Редактировать линию";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="control-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label class="control-label">Статус</label>
+        <input class="form-control" readonly 
+            value="@(Model.Status switch
+            {
+                "Active" => "Активна",
+                "Stopped" => "Остановлена",
+                _ => Model.Status
+            })" />
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="EfficiencyFactor" class="control-label">Коэффициент эффективности (0.5 - 2.0)</label>
+        <input asp-for="EfficiencyFactor" class="form-control" type="number" step="0.1" min="0.5" max="2.0" />
+        <span asp-validation-for="EfficiencyFactor" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+==================== END OF Views/ProductionLines/Edit.cshtml ====================
+
+>>> FILE: Views/ProductionLines/Index.cshtml <<<
+------------------------------------------
+@model IEnumerable<ProductionManagementSystem.Web.Models.ProductionLine>
+
+@{
+    ViewData["Title"] = "Интерактивная панель линий";
+}
+
+<!-- Вставляем токен в начало представления -->
+@Html.AntiForgeryToken()
+
+<h2>@ViewData["Title"]</h2>
+
+<form method="get" class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="available" value="true" id="availableCheckbox" @(ViewBag.Available ? "checked" : "") onchange="this.form.submit()">
+        <label class="form-check-label" for="availableCheckbox">
+            Только доступные (активные)
+        </label>
+        <input type="hidden" name="available" value="false" />
+    </div>
+</form>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить линию</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Статус</th>
+            <th>Коэффициент эффективности</th>
+            <th>Текущий заказ</th>
+            <th>Прогресс выполнения</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td class="@(item.Status == "Active" ? "text-success" : "text-danger")">
+                    @(item.Status switch
+                    {
+                        "Active" => "Активна",
+                        "Stopped" => "Остановлена",
+                        _ => item.Status
+                    })
+                </td>
+                <td>@Html.DisplayFor(modelItem => item.EfficiencyFactor)</td>
+                <td>@(item.CurrentWorkOrder?.Product?.Name ?? "Нет")</td>
+                <td>
+                    @if (item.CurrentWorkOrder != null)
+                    {
+                        <div class="progress">
+                          <div class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <span>-</span>
+                    }
+                </td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <a asp-action="Schedule" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">Расписание</a>
+                    <a asp-action="StartLine" asp-route-id="@item.Id" class="btn btn-sm btn-success">Запустить</a>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="updateLineStatus(@item.Id, 'Stopped')">Остановить</button>
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить линию \'@item.Name\'? Все назначенные заказы будут отвязаны.')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    function updateLineStatus(lineId, newStatus) {
+        // Проверяем, что lineId - число и newStatus - допустимое значение
+        if (isNaN(lineId) || (newStatus !== 'Active' && newStatus !== 'Stopped')) {
+             console.error('Invalid parameters passed to updateLineStatus:', lineId, newStatus);
+             alert('Произошла ошибка: неверные параметры.');
+             return;
+        }
+
+        // Находим токен CSRF
+        const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+        if (!tokenElement) {
+            console.error('CSRF token not found in the document.');
+            alert('Произошла ошибка: отсутствует токен безопасности.');
+            return;
+        }
+        const token = tokenElement.value;
+
+        fetch(`/ProductionLines/UpdateStatus/${lineId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => {
+            if (response.ok) {
+                alert(`Статус линии изменён на ${(newStatus === "Active" ? "Активна" : "Остановлена")}`);
+                location.reload(); // Reload to reflect changes
+            } else {
+                response.text().then(text => {
+                    console.error('Server error:', text);
+                    alert('Ошибка при изменении статуса: ' + text);
+                }).catch(() => {
+                    alert('Ошибка при изменении статуса.');
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            alert('Произошла ошибка сети или другой ошибки при выполнении запроса.');
+        });
+    }
+</script>
+==================== END OF Views/ProductionLines/Index.cshtml ====================
+
+>>> FILE: Views/ProductionLines/Schedule.cshtml <<<
+---------------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Расписание линии " + Model.Name;
+    var availableOrders = ViewBag.AvailableOrders as List<ProductionManagementSystem.Web.Models.WorkOrder>; // Получаем из ViewBag
+}
+
+<h2>@ViewData["Title"]</h2>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<h3>Назначенные заказы</h3>
+@if (Model.AssignedWorkOrders.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Номер заказа</th>
+                <th>Продукт</th>
+                <th>Количество</th>
+                <th>Статус</th>
+                <th>Прогресс</th>
+                <th>Срок выполнения</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in Model.AssignedWorkOrders)
+            {
+                <tr>
+                    <td>@order.Id</td>
+                    <td>@order.Product.Name</td>
+                    <td>@order.Quantity</td>
+                    <td class="@(order.Status == "Completed" ? "text-success" : order.Status == "Cancelled" ? "text-danger" : order.Status == "InProgress" ? "text-info" : "text-warning")">
+                        @(order.Status switch
+                        {
+                            "Pending" => "Ожидает",
+                            "InProgress" => "В процессе",
+                            "Completed" => "Завершён",
+                            "Cancelled" => "Отменён",
+                            _ => order.Status
+                        })
+                    </td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar" style="width: @order.Progress%;" aria-valuenow="@order.Progress" aria-valuemin="0" aria-valuemax="100">@order.Progress%</div>
+                        </div>
+                    </td>
+                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        @if (order.Status == "Pending" && Model.Status == "Stopped")
+                        {
+                             <form asp-action="StartLine" method="post" style="display:inline;">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <input type="hidden" name="productId" value="@order.ProductId" />
+                                <button type="submit" class="btn btn-sm btn-success">Запустить в производство</button>
+                            </form>
+                        }
+                        @if (order.Status == "Pending")
+                        {
+                             <form asp-action="AssignOrder" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="productionLineId" value="@Model.Id" />
+                                <input type="hidden" name="workOrderId" value="@order.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-info">Назначить</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Для этой линии пока не назначено ни одного заказа.</p>
+}
+
+<h3>Доступные заказы для назначения</h3>
+@if (availableOrders != null && availableOrders.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Номер заказа</th>
+                <th>Продукт</th>
+                <th>Количество</th>
+                <th>Срок выполнения</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in availableOrders)
+            {
+                <tr>
+                    <td>@order.Id</td>
+                    <td>@order.Product.Name</td>
+                    <td>@order.Quantity</td>
+                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        <form asp-action="AssignOrder" method="post" style="display:inline;">
+                            <input type="hidden" name="productionLineId" value="@Model.Id" />
+                            <input type="hidden" name="workOrderId" value="@order.Id" />
+                            <button type="submit" class="btn btn-sm btn-primary">Назначить на линию</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Нет доступных заказов для назначения на эту линию.</p>
+}
+<a asp-action="Index" class="btn btn-secondary">Назад к списку линий</a>
+==================== END OF Views/ProductionLines/Schedule.cshtml ====================
+
+>>> FILE: Views/ProductionLines/StartLine.cshtml <<<
+----------------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Запустить линию";
+}
+
+<h2>Запуск производственной линии: @Model.Name</h2>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+@if (ViewBag.AvailableOrders != null && ((List<ProductionManagementSystem.Web.Models.WorkOrder>)ViewBag.AvailableOrders).Any())
+{
+    <form asp-action="StartLine" method="post">
+        <input type="hidden" name="id" value="@Model.Id" />
+        
+        <div class="form-group mb-3">
+            <label class="control-label">Выберите заказ для запуска:</label>
+            <select name="workOrderId" class="form-select">
+                <option value="">-- Выберите заказ --</option>
+                @foreach (var order in ViewBag.AvailableOrders)
+                {
+                    <option value="@order.Id">
+                        @order.Product.Name - Количество: @order.Quantity 
+                        (Время: @order.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm"))
+                    </option>
+                }
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Запустить</button>
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </form>
+}
+else
+{
+    <div class="alert alert-info">Нет доступных заказов для запуска.</div>
+    <form asp-action="StartLine" method="post">
+        <input type="hidden" name="id" value="@Model.Id" />
+        <input type="hidden" name="workOrderId" value="" />
+        <button type="submit" class="btn btn-success">Запустить линию без заказа</button>
+    </form>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+}
+==================== END OF Views/ProductionLines/StartLine.cshtml ====================
+
+--- DIRECTORY: Views/Products ---
+
+>>> FILE: Views/Products/Create.cshtml <<<
+------------------------------------
+@model ProductionManagementSystem.Web.Models.ProductFormViewModel
+
+@{
+    ViewData["Title"] = "Создать продукт";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    
+    <div class="card mb-3">
+        <div class="card-header">Основные данные</div>
+        <div class="card-body">
+            <div class="form-group mb-3">
+                <label asp-for="Product.Name" class="control-label">Название продукта</label>
+                <input asp-for="Product.Name" class="form-control" />
+                <span asp-validation-for="Product.Name" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Description" class="control-label">Описание</label>
+                <textarea asp-for="Product.Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Product.Description" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Specifications" class="control-label">Технические характеристики (JSON)</label>
+                <textarea asp-for="Product.Specifications" class="form-control" rows="4"></textarea>
+                <span asp-validation-for="Product.Specifications" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Category" class="control-label">Категория</label>
+                <input asp-for="Product.Category" class="form-control" />
+                <span asp-validation-for="Product.Category" class="text-danger"></span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.MinimalStock" class="control-label">Минимальный запас</label>
+                        <input asp-for="Product.MinimalStock" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.MinimalStock" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.ProductionTimePerUnit" class="control-label">Время производства (мин/шт)</label>
+                        <input asp-for="Product.ProductionTimePerUnit" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.ProductionTimePerUnit" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция привязки материалов -->
+    <div class="card mb-3">
+        <div class="card-header">Необходимые материалы</div>
+        <div class="card-body">
+            <div id="materialsContainer">
+                <!-- Сюда будут добавляться строки материалов -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addMaterialRow()">
+                + Добавить материал
+            </button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <input type="submit" value="Создать" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Правильная сериализация материалов
+        let availableMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.AvailableMaterials.Select(m => new { 
+                id = m.Id, 
+                name = m.Name, 
+                unitOfMeasure = m.UnitOfMeasure 
+            }).ToList()
+        ));
+
+        function addMaterialRow(materialId = '', quantity = '') {
+            // Проверка: если materialId уже добавлен, не добавляем повторно
+            if (materialId) {
+                const existingRows = document.querySelectorAll('.material-row');
+                for (let row of existingRows) {
+                    const select = row.querySelector('.material-select');
+                    if (select && select.value == materialId) {
+                        alert('Этот материал уже добавлен!');
+                        return;
+                    }
+                }
+            }
+            
+            const container = document.getElementById('materialsContainer');
+            const rowId = 'materialRow_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const row = document.createElement('div');
+            row.className = 'row g-2 mb-2 align-items-center material-row';
+            row.id = rowId;
+            
+            // Создаем options для select
+            let optionsHtml = '<option value="">Выберите материал</option>';
+            for (let m of availableMaterials) {
+                const selected = m.id == materialId ? 'selected' : '';
+                optionsHtml += `<option value="${m.id}" 
+                                    data-name="${m.name}" 
+                                    data-unit="${m.unitOfMeasure}"
+                                    ${selected}>
+                                    ${m.name} (${m.unitOfMeasure})
+                                </option>`;
+            }
+            
+            row.innerHTML = `
+                <div class="col-md-6">
+                    <select class="form-select material-select" required onchange="checkDuplicateMaterial(this)">
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" 
+                           class="form-control material-quantity" 
+                           placeholder="Кол-во на ед." 
+                           min="0.01" 
+                           step="any" 
+                           value="${quantity}"
+                           required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMaterialRow('${rowId}')">×</button>
+                </div>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeMaterialRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // Новая функция для проверки дубликатов при изменении select
+        function checkDuplicateMaterial(selectElement) {
+            const selectedId = selectElement.value;
+            if (!selectedId) return;
+            
+            const row = selectElement.closest('.material-row');
+            const allRows = document.querySelectorAll('.material-row');
+            
+            for (let otherRow of allRows) {
+                if (otherRow === row) continue; // Пропускаем текущую строку
+                
+                const otherSelect = otherRow.querySelector('.material-select');
+                if (otherSelect && otherSelect.value == selectedId) {
+                    alert('Этот материал уже выбран в другой строке!');
+                    selectElement.value = ''; // Сбрасываем выбор
+                    return;
+                }
+            }
+        }
+
+        // Сбор данных перед отправкой формы
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const rows = document.querySelectorAll('.material-row');
+            const ids = [];
+            const quantities = [];
+            
+            rows.forEach(row => {
+                const select = row.querySelector('.material-select');
+                const quantity = row.querySelector('.material-quantity');
+                const materialId = select.value;
+                const qty = parseFloat(quantity.value);
+                
+                if (materialId && qty > 0) {
+                    // Проверка на дубликаты материалов
+                    if (ids.includes(materialId)) {
+                        alert('Материал "' + select.options[select.selectedIndex].text + '" уже добавлен!');
+                        e.preventDefault();
+                        return;
+                    }
+                    ids.push(materialId);
+                    quantities.push(qty);
+                }
+            });
+            
+            // Создаем скрытые поля для передачи данных
+            let hiddenIds = document.getElementById('selectedMaterialIds');
+            let hiddenQuantities = document.getElementById('materialQuantities');
+            
+            if (!hiddenIds) {
+                hiddenIds = document.createElement('input');
+                hiddenIds.type = 'hidden';
+                hiddenIds.id = 'selectedMaterialIds';
+                hiddenIds.name = 'selectedMaterialIds';
+                this.appendChild(hiddenIds);
+            }
+            
+            if (!hiddenQuantities) {
+                hiddenQuantities = document.createElement('input');
+                hiddenQuantities.type = 'hidden';
+                hiddenQuantities.id = 'materialQuantities';
+                hiddenQuantities.name = 'materialQuantities';
+                this.appendChild(hiddenQuantities);
+            }
+            
+            hiddenIds.value = ids.join(',');
+            hiddenQuantities.value = quantities.join(',');
+        });
+    </script>
+}
+==================== END OF Views/Products/Create.cshtml ====================
+
+>>> FILE: Views/Products/Delete.cshtml <<<
+------------------------------------
+@model ProductionManagementSystem.Web.Models.Product
+
+@{
+    ViewData["Title"] = "Удалить продукт";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Вы уверены, что хотите удалить этот продукт?</h3>
+<p class="text-danger">Это также удалит все связанные материалы!</p>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            
+            <dt class="col-sm-3">Категория</dt>
+            <dd class="col-sm-9">@Model.Category</dd>
+            
+            <dt class="col-sm-3">Время производства</dt>
+            <dd class="col-sm-9">@Model.ProductionTimePerUnit мин/шт</dd>
+            
+            <dt class="col-sm-3">Минимальный запас</dt>
+            <dd class="col-sm-9">@Model.MinimalStock</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+</form>
+==================== END OF Views/Products/Delete.cshtml ====================
+
+>>> FILE: Views/Products/Edit.cshtml <<<
+----------------------------------
+@model ProductionManagementSystem.Web.Models.ProductFormViewModel
+
+@{
+    ViewData["Title"] = "Редактировать продукт";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Product.Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    
+    <div class="card mb-3">
+        <div class="card-header">Основные данные</div>
+        <div class="card-body">
+            <div class="form-group mb-3">
+                <label asp-for="Product.Name" class="control-label">Название продукта</label>
+                <input asp-for="Product.Name" class="form-control" />
+                <span asp-validation-for="Product.Name" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Description" class="control-label">Описание</label>
+                <textarea asp-for="Product.Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Product.Description" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Specifications" class="control-label">Технические характеристики (JSON)</label>
+                <textarea asp-for="Product.Specifications" class="form-control" rows="4"></textarea>
+                <span asp-validation-for="Product.Specifications" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Category" class="control-label">Категория</label>
+                <input asp-for="Product.Category" class="form-control" />
+                <span asp-validation-for="Product.Category" class="text-danger"></span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.MinimalStock" class="control-label">Минимальный запас</label>
+                        <input asp-for="Product.MinimalStock" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.MinimalStock" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.ProductionTimePerUnit" class="control-label">Время производства (мин/шт)</label>
+                        <input asp-for="Product.ProductionTimePerUnit" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.ProductionTimePerUnit" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция привязки материалов -->
+    <div class="card mb-3">
+        <div class="card-header">Необходимые материалы</div>
+        <div class="card-body">
+            <div id="materialsContainer">
+                <!-- Сюда будут добавляться строки материалов -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addMaterialRow()">
+                + Добавить материал
+            </button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Правильная сериализация материалов
+        let availableMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.AvailableMaterials.Select(m => new { 
+                id = m.Id, 
+                name = m.Name, 
+                unitOfMeasure = m.UnitOfMeasure 
+            }).ToList()
+        ));
+        
+        let selectedMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SelectedMaterials));
+
+        function addMaterialRow(materialId = '', quantity = '') {
+            // Проверка: если materialId уже добавлен, не добавляем повторно
+            if (materialId) {
+                const existingRows = document.querySelectorAll('.material-row');
+                for (let row of existingRows) {
+                    const select = row.querySelector('.material-select');
+                    if (select && select.value == materialId) {
+                        alert('Этот материал уже добавлен!');
+                        return;
+                    }
+                }
+            }
+            
+            const container = document.getElementById('materialsContainer');
+            const rowId = 'materialRow_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const row = document.createElement('div');
+            row.className = 'row g-2 mb-2 align-items-center material-row';
+            row.id = rowId;
+            
+            // Создаем options для select
+            let optionsHtml = '<option value="">Выберите материал</option>';
+            for (let m of availableMaterials) {
+                const selected = m.id == materialId ? 'selected' : '';
+                optionsHtml += `<option value="${m.id}" 
+                                    data-name="${m.name}" 
+                                    data-unit="${m.unitOfMeasure}"
+                                    ${selected}>
+                                    ${m.name} (${m.unitOfMeasure})
+                                </option>`;
+            }
+            
+            row.innerHTML = `
+                <div class="col-md-6">
+                    <select class="form-select material-select" required onchange="checkDuplicateMaterial(this)">
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" 
+                           class="form-control material-quantity" 
+                           placeholder="Кол-во на ед." 
+                           min="0.01" 
+                           step="any" 
+                           value="${quantity}"
+                           required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMaterialRow('${rowId}')">×</button>
+                </div>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeMaterialRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // Проверка дубликатов при изменении select
+        function checkDuplicateMaterial(selectElement) {
+            const selectedId = selectElement.value;
+            if (!selectedId) return;
+            
+            const row = selectElement.closest('.material-row');
+            const allRows = document.querySelectorAll('.material-row');
+            
+            for (let otherRow of allRows) {
+                if (otherRow === row) continue;
+                
+                const otherSelect = otherRow.querySelector('.material-select');
+                if (otherSelect && otherSelect.value == selectedId) {
+                    alert('Этот материал уже выбран в другой строке!');
+                    selectElement.value = '';
+                    return;
+                }
+            }
+        }
+
+        // Сбор данных перед отправкой формы
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const rows = document.querySelectorAll('.material-row');
+            const ids = [];
+            const quantities = [];
+            
+            rows.forEach(row => {
+                const select = row.querySelector('.material-select');
+                const quantity = row.querySelector('.material-quantity');
+                const materialId = select.value;
+                const qty = parseFloat(quantity.value);
+                
+                if (materialId && qty > 0) {
+                    if (ids.includes(materialId)) {
+                        alert('Материал "' + select.options[select.selectedIndex].text + '" уже добавлен!');
+                        e.preventDefault();
+                        return;
+                    }
+                    ids.push(materialId);
+                    quantities.push(qty);
+                }
+            });
+            
+            let hiddenIds = document.getElementById('selectedMaterialIds');
+            let hiddenQuantities = document.getElementById('materialQuantities');
+            
+            if (!hiddenIds) {
+                hiddenIds = document.createElement('input');
+                hiddenIds.type = 'hidden';
+                hiddenIds.id = 'selectedMaterialIds';
+                hiddenIds.name = 'selectedMaterialIds';
+                this.appendChild(hiddenIds);
+            }
+            
+            if (!hiddenQuantities) {
+                hiddenQuantities = document.createElement('input');
+                hiddenQuantities.type = 'hidden';
+                hiddenQuantities.id = 'materialQuantities';
+                hiddenQuantities.name = 'materialQuantities';
+                this.appendChild(hiddenQuantities);
+            }
+            
+            hiddenIds.value = ids.join(',');
+            hiddenQuantities.value = quantities.join(',');
+        });
+
+        // Инициализация с существующими материалами при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            if (selectedMaterials && selectedMaterials.length > 0) {
+                selectedMaterials.forEach(sm => {
+                    addMaterialRow(sm.materialId, sm.quantityNeeded);
+                });
+            }
+        });
+    </script>
+}
+==================== END OF Views/Products/Edit.cshtml ====================
+
+>>> FILE: Views/Products/Index.cshtml <<<
+-----------------------------------
+@model IEnumerable<ProductionManagementSystem.Web.Models.Product>
+
+@{
+    ViewData["Title"] = "Панель продуктов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form method="get" class="mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label for="category" class="col-form-label">Категория</label>
+        </div>
+        <div class="col-auto">
+            <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+                <option value="">Все</option>
+                @{
+                    var categories = Model.Select(p => p.Category).Where(c => !string.IsNullOrEmpty(c)).Distinct().OrderBy(c => c).ToList();
+                }
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat" selected="@(ViewBag.Category == cat ? "selected" : null)" >@cat</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <input type="text" name="searchString" value="@ViewBag.SearchString" class="form-control" placeholder="Поиск продукта..." />
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary">Фильтровать</button>
+        </div>
+    </div>
+</form>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить продукт</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Время производства (мин/шт)</th>
+            <th>Категория</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td>@Html.DisplayFor(modelItem => item.ProductionTimePerUnit)</td>
+                <td>@Html.DisplayFor(modelItem => item.Category)</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить продукт \'@item.Name\'? Это также удалит все связанные материалы.')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+==================== END OF Views/Products/Index.cshtml ====================
+
+--- DIRECTORY: Views/Shared ---
+
+>>> FILE: Views/Shared/Error.cshtml <<<
+---------------------------------
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<h1 class="text-danger">Error.</h1>
+<h2 class="text-danger">An error occurred while processing your request.</h2>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<h3>Development Mode</h3>
+<p>
+    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
+</p>
+<p>
+    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
+    It can result in displaying sensitive information from exceptions to end users.
+    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
+    and restarting the app.
+</p>
+
+==================== END OF Views/Shared/Error.cshtml ====================
+
+>>> FILE: Views/Shared/_Layout.cshtml <<<
+-----------------------------------
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Система управления производством</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/ProductionManagementSystem.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Система управления производством</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Переключить навигацию">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Главная</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Materials" asp-action="Index">Материалы</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index">Продукты</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="WorkOrders" asp-action="Index">Заказы</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="ProductionLines" asp-action="Index">Производственные линии</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Конфиденциальность</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - Система управления производством - <a asp-area="" asp-controller="Home" asp-action="Privacy">Конфиденциальность</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+==================== END OF Views/Shared/_Layout.cshtml ====================
+
+>>> FILE: Views/Shared/_ValidationScriptsPartial.cshtml <<<
+-----------------------------------------------------
+﻿<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+
+==================== END OF Views/Shared/_ValidationScriptsPartial.cshtml ====================
+
+--- DIRECTORY: Views/WorkOrders ---
+
+>>> FILE: Views/WorkOrders/Create.cshtml <<<
+--------------------------------------
+@model ProductionManagementSystem.Web.Models.WorkOrder
+
+@{
+    ViewData["Title"] = "Создать производственный заказ";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create">
+    <!-- Этот тег-хелпер автоматически отображает ошибки уровня модели -->
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="form-group mb-3">
+        <label asp-for="ProductId" class="control-label">Продукт</label>
+        <select asp-for="ProductId" class="form-select" asp-items="@(new SelectList(ViewBag.Products, "Id", "Name"))" required>
+            <option value="">Выберите продукт</option>
+        </select>
+        <span asp-validation-for="ProductId" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" min="1" value="1" required />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="StartDate" class="control-label">Дата начала</label>
+        <input asp-for="StartDate" class="form-control" type="date" value="@(DateTime.Now.ToString("yyyy-MM-dd"))" required />
+        <span asp-validation-for="StartDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="ProductionLineId" class="control-label">Производственная линия</label>
+        <select asp-for="ProductionLineId" class="form-select" asp-items="@(new SelectList(ViewBag.Lines, "Id", "Name"))">
+            <option value="">Не назначена</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Создать" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+==================== END OF Views/WorkOrders/Create.cshtml ====================
+
+>>> FILE: Views/WorkOrders/Edit.cshtml <<<
+------------------------------------
+@model ProductionManagementSystem.Web.Models.WorkOrder
+
+@{
+    ViewData["Title"] = "Редактировать заказ";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group mb-3">
+        <label asp-for="ProductId" class="control-label">Продукт</label>
+        <select asp-for="ProductId" class="form-select" asp-items="@(new SelectList(ViewBag.Products, "Id", "Name"))" required onchange="calculateTimeAndCheckMaterialsEdit(this.value)">
+            <option value="">Выберите продукт</option>
+        </select>
+        <span asp-validation-for="ProductId" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" min="1" onchange="calculateTimeAndCheckMaterialsEdit(document.getElementById('ProductId').value, this.value)" />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="StartDate" class="control-label">Дата начала</label>
+        <input asp-for="StartDate" class="form-control" type="date" />
+        <span asp-validation-for="StartDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="ProductionLineId" class="control-label">Производственная линия</label>
+        <select asp-for="ProductionLineId" class="form-select" asp-items="@(new SelectList(ViewBag.Lines, "Id", "Name"))">
+            <option value="">Не назначена</option>
+        </select>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="EstimatedEndDate" class="control-label">Расчётная дата завершения</label>
+        <input asp-for="EstimatedEndDate" class="form-control" type="date" />
+        <span asp-validation-for="EstimatedEndDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label class="control-label">Статус</label>
+            <input class="form-control" readonly 
+                value="@(Model.Status switch
+                {
+                    "Pending" => "Ожидает",
+                    "InProgress" => "В процессе",
+                    "Completed" => "Завершён",
+                    "Cancelled" => "Отменён",
+                    _ => Model.Status
+                })" />
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+<script>
+    // Similar logic to Create, adapted for editing
+    async function calculateTimeAndCheckMaterialsEdit(productId, quantityInput) {
+        const quantity = quantityInput ? parseInt(quantityInput) : document.getElementById('Quantity').valueAsNumber;
+        if (!productId || quantity <= 0) return;
+
+        const lineSelect = document.getElementById('ProductionLineId');
+        const selectedLineOption = lineSelect.options[lineSelect.selectedIndex];
+        const lineId = selectedLineOption.value ? parseInt(selectedLineOption.value) : null;
+
+        // Fetch product details including ProductionTimePerUnit
+        try {
+            const productResponse = await fetch(`/Products/${productId}`); // API endpoint needed
+            if (productResponse.ok) {
+                const productData = await productResponse.json();
+                const timePerUnit = productData.productionTimePerUnit; // Adjust property name
+                const efficiency = lineId ? await getLineEfficiency(lineId) : 1.0;
+
+                const totalTimeMinutes = Math.ceil((quantity * timePerUnit) / efficiency);
+                const startDate = new Date(document.getElementById('StartDate').value);
+                const endDate = new Date(startDate.getTime() + totalTimeMinutes * 60000);
+
+                document.getElementById('EstimatedEndDate').valueAsDate = endDate;
+
+                // Material check logic here (similar to Create)
+            } else {
+                 console.error('Failed to fetch product details for calculation.');
+            }
+        } catch (error) {
+            console.error('Error during calculation:', error);
+        }
+    }
+</script>
+==================== END OF Views/WorkOrders/Edit.cshtml ====================
+
+>>> FILE: Views/WorkOrders/Index.cshtml <<<
+-------------------------------------
+@model IEnumerable<ProductionManagementSystem.Web.Models.WorkOrder>
+
+@{
+    ViewData["Title"] = "Панель заказов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form method="get" class="mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label for="status" class="col-form-label">Статус</label>
+        </div>
+        <div class="col-auto">
+            <select name="status" id="status" class="form-select" onchange="this.form.submit()">
+                <option value="">Все</option>
+                <option value="Pending" selected="@(ViewBag.Status == "Pending" ? "selected" : null)">Ожидает</option>
+                <option value="InProgress" selected="@(ViewBag.Status == "InProgress" ? "selected" : null)">В процессе</option>
+                <option value="Completed" selected="@(ViewBag.Status == "Completed" ? "selected" : null)">Завершён</option>
+                <option value="Cancelled" selected="@(ViewBag.Status == "Cancelled" ? "selected" : null)">Отменён</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <label for="date" class="col-form-label">Дата</label>
+        </div>
+        <div class="col-auto">
+            <!-- Исправленный формат даты для input type=date -->
+            <input type="date" name="date" id="date" class="form-control" value="@(ViewBag.Date?.ToString("yyyy-MM-dd"))" onchange="this.form.submit()" />
+        </div>
+    </div>
+</form>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Создать заказ</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Номер</th>
+            <th>Продукт</th>
+            <th>Количество</th>
+            <th>Статус</th>
+            <th>Прогресс</th> <!-- Новый столбец -->
+            <th>Срок выполнения</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr id="order-row-@item.Id"> <!-- Добавлен ID для легкой идентификации строки -->
+                <td>@Html.DisplayFor(modelItem => item.Id)</td>
+                <td>@Html.DisplayFor(modelItem => item.Product.Name)</td>
+                <td>@Html.DisplayFor(modelItem => item.Quantity)</td>
+                <td class="status-cell-@item.Id"> <!-- Добавлен класс для легкой идентификации ячейки статуса -->
+                    <span class="badge 
+                        @(item.Status == "Completed" ? "bg-success" : 
+                          item.Status == "Cancelled" ? "bg-danger" : 
+                          item.Status == "InProgress" ? "bg-info" : "bg-warning")">
+                        @(item.Status switch
+                        {
+                            "Pending" => "Ожидает",
+                            "InProgress" => "В процессе",
+                            "Completed" => "Завершён",
+                            "Cancelled" => "Отменён",
+                            _ => item.Status
+                        })
+                    </span>
+                </td>
+                <td> <!-- Новый столбец с прогресс-баром -->
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar progress-bar-@item.Id" role="progressbar" style="width: @item.Progress%;" aria-valuenow="@item.Progress" aria-valuemin="0" aria-valuemax="100">@item.Progress%</div>
+                    </div>
+                </td>
+                <td>@item.EstimatedEndDate.ToString("dd.MM.yyyy")</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    @if (item.Status == "Pending")
+                    {
+                        <form asp-action="Cancel" method="post" style="display:inline;">
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Вы уверены, что хотите отменить этот заказ?')">Отменить заказ</button>
+                        </form>
+                    }
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить заказ #@item.Id?')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Скрипт для периодического обновления прогресса и статуса -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Найдём все строки таблицы с заказами
+        const orderRows = document.querySelectorAll('tbody tr');
+
+        orderRows.forEach(row => {
+            const orderIdElement = row.querySelector('td:first-child');
+            if (!orderIdElement) return; // Защита от пустых строк
+
+            const orderId = parseInt(orderIdElement.textContent, 10); // Преобразуем в число
+            if (isNaN(orderId)) return; // Проверим, что это число
+
+            const progressBar = row.querySelector(`.progress-bar-${orderId}`);
+            const statusCell = row.querySelector(`.status-cell-${orderId}`);
+
+            if (progressBar && statusCell) {
+                // Запускаем обновление каждые 3 секунды
+                setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/WorkOrders/GetProgress/${orderId}`);
+                        
+                        if (!response.ok) {
+                            // Если заказ был удалён, сервер вернёт 404
+                            if (response.status === 404) {
+                                console.log(`Заказ ${orderId} больше не существует, останавливаю обновление.`);
+                                // Можно визуально скрыть строку или удалить её
+                                // row.remove(); // Удалить строку
+                                // row.style.opacity = '0.5'; // Сделать полупрозрачной
+                                return; // Прекратить обновления для этой строки
+                            }
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        // Обновляем прогресс-бар
+                        progressBar.style.width = `${data.progress}%`;
+                        progressBar.textContent = `${data.progress}%`;
+
+                        // Обновляем статус (если изменился)
+                        let statusText = '';
+                        let badgeClass = '';
+                        switch (data.status) {
+                            case 'Pending':
+                                statusText = 'Ожидает';
+                                badgeClass = 'bg-warning';
+                                break;
+                            case 'InProgress':
+                                statusText = 'В процессе';
+                                badgeClass = 'bg-info';
+                                break;
+                            case 'Completed':
+                                statusText = 'Завершён';
+                                badgeClass = 'bg-success';
+                                break;
+                            case 'Cancelled':
+                                statusText = 'Отменён';
+                                badgeClass = 'bg-danger';
+                                break;
+                            default:
+                                statusText = data.status;
+                                badgeClass = 'bg-secondary'; // На случай неизвестного статуса
+                        }
+                        // Устанавливаем новый текст и класс для бейджа
+                        statusCell.innerHTML = `<span class="badge ${badgeClass}">${statusText}</span>`;
+                        
+                    } catch (error) {
+                        console.error(`Ошибка при получении прогресса для заказа ${orderId}:`, error);
+                        // Можно добавить индикатор ошибки в UI, если нужно
+                    }
+                }, 3000); // Каждые 3 секунды
+            } else {
+                 console.warn(`Элементы для заказа ${orderId} (progressBar или statusCell) не найдены.`);
+            }
+        });
+    });
+</script>
+
+==================== END OF Views/WorkOrders/Index.cshtml ====================
+
+--- DIRECTORY: wwwroot ---
+
+--- DIRECTORY: wwwroot/css ---
+
+--- DIRECTORY: wwwroot/js ---
+
+--- DIRECTORY: wwwroot/lib ---
+
+--- DIRECTORY: wwwroot/lib/bootstrap ---
+
+--- DIRECTORY: wwwroot/lib/jquery ---
+
+>>> FILE: wwwroot/lib/jquery/LICENSE.txt <<<
+--------------------------------------
+
+Copyright OpenJS Foundation and other contributors, https://openjsf.org/
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+==================== END OF wwwroot/lib/jquery/LICENSE.txt ====================
+
+--- DIRECTORY: wwwroot/lib/jquery-validation ---
+
+>>> FILE: wwwroot/lib/jquery-validation/LICENSE.md <<<
+------------------------------------------------
+The MIT License (MIT)
+=====================
+
+Copyright Jörn Zaefferer
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+==================== END OF wwwroot/lib/jquery-validation/LICENSE.md ====================
+
+--- DIRECTORY: wwwroot/lib/jquery-validation-unobtrusive ---
+
+>>> FILE: wwwroot/lib/jquery-validation-unobtrusive/LICENSE.txt <<<
+-------------------------------------------------------------
+The MIT License (MIT)
+
+Copyright (c) .NET Foundation and Contributors
+
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==================== END OF wwwroot/lib/jquery-validation-unobtrusive/LICENSE.txt ====================
+
+================================================================================
+ANALYSIS COMPLETE
+================================================================================

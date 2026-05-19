@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProductionManagementSystem.Web.Data;
+using ProductionManagementSystem.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,7 @@ builder.Services.AddHostedService<OrderCompletionService>();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=ProductionManagementSystem.db";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
+builder.Services.AddScoped<MaterialService>();
 
 var app = builder.Build();
 

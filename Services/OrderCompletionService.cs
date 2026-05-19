@@ -37,8 +37,8 @@ public class OrderCompletionService : BackgroundService
                 }
             }
 
-            // Проверять каждые 5 минут
-            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            // Проверять каждые 30 секунд
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
         }
     }
 }

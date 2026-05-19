@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ProductionManagementSystem.Web.Data;
 using ProductionManagementSystem.Web.Models;
+using ProductionManagementSystem.Web.Services; 
 
 namespace ProductionManagementSystem.Web.Controllers;
 
@@ -10,11 +11,16 @@ public class ProductionLinesController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ProductionLinesController> _logger;
+    private readonly MaterialService _materialService;
 
-    public ProductionLinesController(ApplicationDbContext context, ILogger<ProductionLinesController> logger)
+    public ProductionLinesController(
+        ApplicationDbContext context, 
+        ILogger<ProductionLinesController> logger,
+        MaterialService materialService)
     {
         _context = context;
         _logger = logger;
+        _materialService = materialService;
     }
 
     // GET: ProductionLines
@@ -63,7 +69,6 @@ public class ProductionLinesController : Controller
             }
             catch (DbUpdateException ex)
             {
-                // Обработка нарушения уникального ограничения в БД
                 if (ex.InnerException?.Message.Contains("UNIQUE constraint failed: ProductionLines.Name") == true)
                 {
                     ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
@@ -121,7 +126,6 @@ public class ProductionLinesController : Controller
             }
             catch (DbUpdateException ex)
             {
-                // Обработка нарушения уникального ограничения в БД
                 if (ex.InnerException?.Message.Contains("UNIQUE constraint failed: ProductionLines.Name") == true)
                 {
                     ModelState.AddModelError("Name", "Производственная линия с таким названием уже существует.");
@@ -138,6 +142,7 @@ public class ProductionLinesController : Controller
     }
 
     // GET: ProductionLines/Delete/5
+    [HttpGet]
     public async Task<IActionResult> Delete(int? id)
     {
         if (id == null) return NotFound();
@@ -203,59 +208,37 @@ public class ProductionLinesController : Controller
             .ThenInclude(pm => pm.Material)
             .FirstOrDefaultAsync(wo => wo.Id == workOrderId);
 
-        if (line == null)
+        if (line == null || order == null)
         {
-            _logger.LogError($"Production line {productionLineId} not found");
-            return NotFound($"Линия #{productionLineId} не найдена");
+            return NotFound();
         }
+
+        // Проверка материалов через сервис
+        var (hasEnough, message) = await _materialService.CheckMaterialsAsync(order);
         
-        if (order == null)
+        if (!hasEnough)
         {
-            _logger.LogError($"Work order {workOrderId} not found");
-            return NotFound($"Заказ #{workOrderId} не найден");
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Schedule), new { id = productionLineId });
         }
 
-        // Проверка материалов
-        bool hasSufficientMaterials = true;
-        if (order.Product?.MaterialsNeeded != null)
+        // Списываем материалы
+        var deductSuccess = await _materialService.DeductMaterialsAsync(order);
+        if (!deductSuccess)
         {
-            foreach (var pm in order.Product.MaterialsNeeded)
-            {
-                var materialInStock = await _context.Materials
-                    .Where(m => m.Id == pm.MaterialId)
-                    .Select(m => m.Quantity)
-                    .FirstOrDefaultAsync();
-                
-                if (materialInStock < pm.QuantityNeeded * order.Quantity)
-                {
-                    hasSufficientMaterials = false;
-                    _logger.LogWarning($"Недостаточно материала #{pm.MaterialId} для заказа #{workOrderId}");
-                    break;
-                }
-            }
-        }
-
-        if (!hasSufficientMaterials)
-        {
-            TempData["ErrorMessage"] = "Недостаточно материалов для запуска заказа.";
+            TempData["ErrorMessage"] = "Ошибка при списании материалов. Попробуйте ещё раз.";
             return RedirectToAction(nameof(Schedule), new { id = productionLineId });
         }
 
         // Назначаем заказ на линию
         order.ProductionLineId = productionLineId;
+        order.Status = "InProgress";
+        line.CurrentWorkOrderId = order.Id;
+        line.Status = "Active";
         
-        if (line.CurrentWorkOrderId == null && order.Status == "Pending")
-        {
-            line.CurrentWorkOrderId = order.Id;
-            order.Status = "InProgress";
-            _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен");
-        }
-        else
-        {
-            _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} (ожидает запуска)");
-        }
-
         await _context.SaveChangesAsync();
+        
+        TempData["SuccessMessage"] = $"Заказ #{order.Id} запущен. Материалы списаны.";
         return RedirectToAction(nameof(Schedule), new { id = productionLineId });
     }
 
@@ -294,5 +277,80 @@ public class ProductionLinesController : Controller
         await _context.SaveChangesAsync();
 
         return Ok(new { newStatus = line.Status });
+    }
+
+    // GET: ProductionLines/StartLine/5
+    [HttpGet]
+    public async Task<IActionResult> StartLine(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var line = await _context.ProductionLines
+            .Include(pl => pl.CurrentWorkOrder)
+            .ThenInclude(wo => wo != null ? wo.Product : null)
+            .FirstOrDefaultAsync(m => m.Id == id);
+
+        if (line == null) return NotFound();
+
+        // Получаем все pending заказы, которые можно запустить
+        ViewBag.AvailableOrders = await _context.WorkOrders
+            .Where(wo => wo.Status == "Pending" && wo.ProductionLineId == null)
+            .Include(wo => wo.Product)
+            .ToListAsync();
+
+        return View(line);
+    }
+
+    // POST: ProductionLines/StartLine
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartLine(int id, int? workOrderId)
+    {
+        var line = await _context.ProductionLines.FindAsync(id);
+        if (line == null) return NotFound();
+
+        if (workOrderId.HasValue)
+        {
+            var order = await _context.WorkOrders
+                .Include(wo => wo.Product)
+                .ThenInclude(p => p.MaterialsNeeded)
+                .ThenInclude(pm => pm.Material)
+                .FirstOrDefaultAsync(wo => wo.Id == workOrderId.Value);
+
+            if (order == null) return NotFound();
+
+            // Проверка материалов
+            var (hasEnough, message) = await _materialService.CheckMaterialsAsync(order);
+            
+            if (!hasEnough)
+            {
+                TempData["ErrorMessage"] = message;
+                return RedirectToAction(nameof(StartLine), new { id = line.Id });
+            }
+
+            // Списываем материалы
+            var deductSuccess = await _materialService.DeductMaterialsAsync(order);
+            if (!deductSuccess)
+            {
+                TempData["ErrorMessage"] = "Ошибка при списании материалов.";
+                return RedirectToAction(nameof(StartLine), new { id = line.Id });
+            }
+
+            order.ProductionLineId = id;
+            order.Status = "InProgress";
+            line.CurrentWorkOrderId = order.Id;
+            line.Status = "Active";
+            
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"Заказ #{order.Id} запущен. Материалы списаны.";
+        }
+        else
+        {
+            line.Status = "Active";
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Линия запущена без заказа.";
+        }
+
+        return RedirectToAction(nameof(Index));
     }
 }

@@ -1,5 +1,8 @@
 namespace ProductionManagementSystem.Web.Models;
 
+/// <summary>
+/// ViewModel для форм создания/редактирования продукта
+/// </summary>
 public class ProductFormViewModel
 {
     public Product Product { get; set; } = null!;
@@ -7,6 +10,9 @@ public class ProductFormViewModel
     public List<ProductMaterialViewModel> SelectedMaterials { get; set; } = new();
 }
 
+/// <summary>
+/// ViewModel для отображения материала в форме продукта
+/// </summary>
 public class ProductMaterialViewModel
 {
     public int MaterialId { get; set; }

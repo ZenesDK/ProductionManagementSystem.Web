@@ -1,0 +1,91 @@
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Запустить линию";
+}
+
+<h2>Запуск производственной линии: @Model.Name</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Ошибка!</strong> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (ViewBag.AvailableOrders != null && ((List<ProductionManagementSystem.Web.Models.WorkOrder>)ViewBag.AvailableOrders).Any())
+{
+    <form asp-action="StartLine" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
+        
+        <div class="form-group mb-3">
+            <label class="control-label">Выберите заказ для запуска:</label>
+            <select name="workOrderId" class="form-select">
+                <option value="">-- Выберите заказ --</option>
+                @foreach (var order in ViewBag.AvailableOrders)
+                {
+                    <option value="@order.Id">
+                        Заказ #@order.Id - @order.Product.Name - Количество: @order.Quantity 
+                        (Завершение: @order.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm"))
+                    </option>
+                }
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Запустить с выбранным заказом</button>
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </form>
+}
+else
+{
+    <div class="alert alert-info">Нет доступных заказов для запуска.</div>
+    <form asp-action="StartLine" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
+        <input type="hidden" name="workOrderId" value="" />
+        <button type="submit" class="btn btn-success">Запустить линию без заказа</button>
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </form>
+}
+
+<hr />
+
+<div class="card mt-3">
+    <div class="card-header">
+        <strong>Информация о линии</strong>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Статус</dt>
+            <dd class="col-sm-9">@(Model.Status == "Active" ? "Активна" : "Остановлена")</dd>
+            
+            <dt class="col-sm-3">Коэффициент эффективности</dt>
+            <dd class="col-sm-9">@Model.EfficiencyFactor</dd>
+            
+            @if (Model.CurrentWorkOrder != null)
+            {
+                <dt class="col-sm-3">Текущий заказ</dt>
+                <dd class="col-sm-9">Заказ #@Model.CurrentWorkOrder.Id - @Model.CurrentWorkOrder.Product?.Name</dd>
+                
+                <dt class="col-sm-3">Прогресс</dt>
+                <dd class="col-sm-9">
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" style="width: @Model.CurrentWorkOrder.Progress%;">
+                            @Model.CurrentWorkOrder.Progress%
+                        </div>
+                    </div>
+                </dd>
+            }
+        </dl>
+    </div>
+</div>

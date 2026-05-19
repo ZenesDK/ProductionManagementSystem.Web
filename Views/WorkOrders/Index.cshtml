@@ -6,6 +6,22 @@
 
 <h2>@ViewData["Title"]</h2>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["WarningMessage"] != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        @TempData["WarningMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <form method="get" class="mb-3">
     <div class="row g-3 align-items-center">
         <div class="col-auto">
@@ -14,24 +30,23 @@
         <div class="col-auto">
             <select name="status" id="status" class="form-select" onchange="this.form.submit()">
                 <option value="">Все</option>
-                <option value="Pending" selected="@(ViewBag.Status == "Pending" ? "selected" : null)">Ожидает</option> <!-- Исправленная строка -->
-                <option value="InProgress" selected="@(ViewBag.Status == "InProgress" ? "selected" : null)">В процессе</option> <!-- Исправленная строка -->
-                <option value="Completed" selected="@(ViewBag.Status == "Completed" ? "selected" : null)">Завершён</option> <!-- Исправленная строка -->
-                <option value="Cancelled" selected="@(ViewBag.Status == "Cancelled" ? "selected" : null)">Отменён</option> <!-- Исправленная строка -->
+                <option value="Pending" selected="@(ViewBag.Status == "Pending" ? "selected" : null)">Ожидает</option>
+                <option value="InProgress" selected="@(ViewBag.Status == "InProgress" ? "selected" : null)">В процессе</option>
+                <option value="Completed" selected="@(ViewBag.Status == "Completed" ? "selected" : null)">Завершён</option>
+                <option value="Cancelled" selected="@(ViewBag.Status == "Cancelled" ? "selected" : null)">Отменён</option>
             </select>
         </div>
         <div class="col-auto">
-            <label for="date" class="col-form-label">Дата</label>
+            <label for="date" class="col-form-label">Дата завершения</label>
         </div>
         <div class="col-auto">
-            <input type="date" name="date" id="date" class="form-control" value="@(ViewBag.Date?.ToString("dd.MM.yyyy HH:mm"))" onchange="this.form.submit()" />
+            <input type="date" name="date" id="date" class="form-control" value="@(ViewBag.Date?.ToString("yyyy-MM-dd"))" onchange="this.form.submit()" />
+        </div>
+        <div class="col-auto">
+            <a asp-action="Create" class="btn btn-primary">Создать заказ</a>
         </div>
     </div>
 </form>
-
-<p>
-    <a asp-action="Create" class="btn btn-primary">Создать заказ</a>
-</p>
 
 <table class="table table-striped">
     <thead>
@@ -40,35 +55,57 @@
             <th>Продукт</th>
             <th>Количество</th>
             <th>Статус</th>
+            <th>Прогресс</th>
             <th>Срок выполнения</th>
+            <th>Время начала</th>
+            <th>Производственная линия</th>
             <th></th>
-        </tr>
+         </tr>
     </thead>
     <tbody>
         @foreach (var item in Model)
         {
-            <tr>
+            <tr id="order-row-@item.Id">
                 <td>@Html.DisplayFor(modelItem => item.Id)</td>
                 <td>@Html.DisplayFor(modelItem => item.Product.Name)</td>
                 <td>@Html.DisplayFor(modelItem => item.Quantity)</td>
-                <td class="@(item.Status == "Completed" ? "text-success" : item.Status == "Cancelled" ? "text-danger" : item.Status == "InProgress" ? "text-info" : "text-warning")">
-                    @(item.Status switch
-                    {
-                        "Pending" => "Ожидает",
-                        "InProgress" => "В процессе",
-                        "Completed" => "Завершён",
-                        "Cancelled" => "Отменён",
-                        _ => item.Status
-                    })
+                <td class="status-cell-@item.Id">
+                    <span class="badge 
+                        @(item.Status == "Completed" ? "bg-success" : 
+                          item.Status == "Cancelled" ? "bg-danger" : 
+                          item.Status == "InProgress" ? "bg-info" : "bg-warning")">
+                        @(item.Status switch
+                        {
+                            "Pending" => "Ожидает",
+                            "InProgress" => "В процессе",
+                            "Completed" => "Завершён",
+                            "Cancelled" => "Отменён",
+                            _ => item.Status
+                        })
+                    </span>
                 </td>
-                <td>@item.EstimatedEndDate.ToString("dd.MM.yyyy")</td>
+                <td>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar progress-bar-@item.Id" role="progressbar" 
+                             style="width: @item.Progress%;" 
+                             aria-valuenow="@item.Progress" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            @item.Progress%
+                        </div>
+                    </div>
+                </td>
+                <td>@item.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                <td>@(item.ProductionLine?.Name ?? "Не назначена")</td>
                 <td>
                     <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                    @if (item.Status == "Pending")
+                    @if (item.Status == "Pending" || item.Status == "InProgress")
                     {
                         <form asp-action="Cancel" method="post" style="display:inline;">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@item.Id" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Вы уверены, что хотите отменить этот заказ?')">Отменить заказ</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Вы уверены, что хотите отменить этот заказ? Материалы будут возвращены на склад.')">Отменить</button>
                         </form>
                     }
                     <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
@@ -78,3 +115,77 @@
         }
     </tbody>
 </table>
+
+<script>
+    // Функция для периодического обновления статусов
+    function updateAllOrders() {
+        const rows = document.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            const idCell = row.querySelector('td:first-child');
+            if (!idCell) return;
+            
+            const orderId = parseInt(idCell.textContent);
+            if (isNaN(orderId)) return;
+            
+            fetch(`/api/WorkOrders/GetProgress/${orderId}`)
+                .then(response => {
+                    if (response.status === 404) return null;
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return;
+                    
+                    // Обновляем прогресс-бар
+                    const progressBar = row.querySelector(`.progress-bar-${orderId}`);
+                    if (progressBar) {
+                        progressBar.style.width = `${data.progress}%`;
+                        progressBar.textContent = `${data.progress}%`;
+                        progressBar.setAttribute('aria-valuenow', data.progress);
+                    }
+                    
+                    // Обновляем статус
+                    const statusCell = row.querySelector(`.status-cell-${orderId}`);
+                    if (statusCell) {
+                        let statusText = '';
+                        let badgeClass = '';
+                        
+                        switch (data.status) {
+                            case 'Pending':
+                                statusText = 'Ожидает';
+                                badgeClass = 'bg-warning';
+                                break;
+                            case 'InProgress':
+                                statusText = 'В процессе';
+                                badgeClass = 'bg-info';
+                                break;
+                            case 'Completed':
+                                statusText = 'Завершён';
+                                badgeClass = 'bg-success';
+                                break;
+                            case 'Cancelled':
+                                statusText = 'Отменён';
+                                badgeClass = 'bg-danger';
+                                break;
+                            default:
+                                statusText = data.status;
+                                badgeClass = 'bg-secondary';
+                        }
+                        
+                        statusCell.innerHTML = `<span class="badge ${badgeClass}">${statusText}</span>`;
+                        
+                        if (data.status === 'Completed') {
+                            row.style.opacity = '0.7';
+                        }
+                    }
+                })
+                .catch(error => console.error(`Ошибка обновления заказа ${orderId}:`, error));
+        });
+    }
+    
+    // Запускаем обновление
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAllOrders();
+        setInterval(updateAllOrders, 3000);
+    });
+</script>

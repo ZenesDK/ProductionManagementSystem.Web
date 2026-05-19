@@ -2,27 +2,40 @@
 
 @{
     ViewData["Title"] = "Расписание линии " + Model.Name;
-    var availableOrders = ViewBag.AvailableOrders as List<ProductionManagementSystem.Web.Models.WorkOrder>; // Получаем из ViewBag
+    var availableOrders = ViewBag.AvailableOrders as List<ProductionManagementSystem.Web.Models.WorkOrder>;
 }
 
 <h2>@ViewData["Title"]</h2>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 @if (TempData["ErrorMessage"] != null)
 {
-    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
 }
 
 <h3>Назначенные заказы</h3>
-@if (Model.AssignedWorkOrders.Any())
+@if (Model.AssignedWorkOrders != null && Model.AssignedWorkOrders.Any())
 {
-    <table class="table">
+    <table class="table table-striped">
         <thead>
             <tr>
                 <th>Номер заказа</th>
                 <th>Продукт</th>
                 <th>Количество</th>
                 <th>Статус</th>
+                <th>Прогресс</th>
                 <th>Срок выполнения</th>
+                <th>Время начала</th>
                 <th></th>
             </tr>
         </thead>
@@ -31,7 +44,7 @@
             {
                 <tr>
                     <td>@order.Id</td>
-                    <td>@order.Product.Name</td>
+                    <td>@order.Product?.Name</td>
                     <td>@order.Quantity</td>
                     <td class="@(order.Status == "Completed" ? "text-success" : order.Status == "Cancelled" ? "text-danger" : order.Status == "InProgress" ? "text-info" : "text-warning")">
                         @(order.Status switch
@@ -42,28 +55,26 @@
                             "Cancelled" => "Отменён",
                             _ => order.Status
                         })
-                    </td>
-                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                     </td>
                     <td>
-                        @if (order.Status == "Pending" && Model.Status == "Stopped")
-                        {
-                             <form asp-action="StartLine" method="post" style="display:inline;">
-                                <input type="hidden" name="id" value="@Model.Id" />
-                                <input type="hidden" name="productId" value="@order.ProductId" />
-                                <button type="submit" class="btn btn-sm btn-success">Запустить в производство</button>
-                            </form>
-                        }
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar" style="width: @order.Progress%;" aria-valuenow="@order.Progress" aria-valuemin="0" aria-valuemax="100">@order.Progress%</div>
+                        </div>
+                     </td>
+                    <td>@order.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@order.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>
                         @if (order.Status == "Pending")
                         {
                              <form asp-action="AssignOrder" method="post" style="display:inline;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="productionLineId" value="@Model.Id" />
                                 <input type="hidden" name="workOrderId" value="@order.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-info">Назначить</button>
+                                <button type="submit" class="btn btn-sm btn-success">Запустить</button>
                             </form>
                         }
-                    </td>
-                </tr>
+                     </td>
+                 </tr>
             }
         </tbody>
     </table>
@@ -76,32 +87,35 @@ else
 <h3>Доступные заказы для назначения</h3>
 @if (availableOrders != null && availableOrders.Any())
 {
-    <table class="table">
+    <table class="table table-striped">
         <thead>
             <tr>
                 <th>Номер заказа</th>
                 <th>Продукт</th>
                 <th>Количество</th>
                 <th>Срок выполнения</th>
+                <th>Время начала</th>
                 <th></th>
-            </tr>
+             </tr>
         </thead>
         <tbody>
             @foreach (var order in availableOrders)
             {
                 <tr>
                     <td>@order.Id</td>
-                    <td>@order.Product.Name</td>
+                    <td>@order.Product?.Name</td>
                     <td>@order.Quantity</td>
-                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                    <td>@order.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@order.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
                     <td>
                         <form asp-action="AssignOrder" method="post" style="display:inline;">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="productionLineId" value="@Model.Id" />
                             <input type="hidden" name="workOrderId" value="@order.Id" />
                             <button type="submit" class="btn btn-sm btn-primary">Назначить на линию</button>
                         </form>
-                    </td>
-                </tr>
+                     </td>
+                 </tr>
             }
         </tbody>
     </table>
@@ -110,4 +124,5 @@ else
 {
     <p>Нет доступных заказов для назначения на эту линию.</p>
 }
+
 <a asp-action="Index" class="btn btn-secondary">Назад к списку линий</a>

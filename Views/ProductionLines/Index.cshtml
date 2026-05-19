@@ -64,7 +64,7 @@
                 <td>
                     <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
                     <a asp-action="Schedule" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">Расписание</a>
-                    <button type="button" class="btn btn-sm btn-success" onclick="updateLineStatus(@item.Id, 'Active')">Запустить</button>
+                    <a asp-action="StartLine" asp-route-id="@item.Id" class="btn btn-sm btn-success">Запустить</a>
                     <button type="button" class="btn btn-sm btn-warning" onclick="updateLineStatus(@item.Id, 'Stopped')">Остановить</button>
                     <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
                         onclick="return confirm('Вы уверены, что хотите удалить линию \'@item.Name\'? Все назначенные заказы будут отвязаны.')">Удалить</a>
@@ -118,4 +118,69 @@
             alert('Произошла ошибка сети или другой ошибки при выполнении запроса.');
         });
     }
+</script>
+
+<script>
+    // Функция для обновления статуса всех линий
+    async function updateAllLinesStatus() {
+        const rows = document.querySelectorAll('tbody tr');
+        
+        for (const row of rows) {
+            // Ищем ссылку на редактирование, чтобы получить ID линии
+            const editLink = row.querySelector('a[asp-action="Edit"]');
+            if (!editLink) continue;
+            
+            // Извлекаем ID из href
+            const href = editLink.getAttribute('href');
+            const match = href.match(/\/ProductionLines\/Edit\/(\d+)/);
+            if (!match) continue;
+            
+            const lineId = match[1];
+            
+            try {
+                // Получаем актуальные данные линии через API
+                const response = await fetch(`/api/lines/${lineId}/status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Обновляем ячейку статуса
+                    const statusCell = row.querySelector('td:nth-child(2)');
+                    if (statusCell) {
+                        const statusText = data.status === 'Active' ? 'Активна' : 'Остановлена';
+                        statusCell.textContent = statusText;
+                        statusCell.className = data.status === 'Active' ? 'text-success' : 'text-danger';
+                    }
+                    
+                    // Обновляем прогресс, если есть заказ
+                    if (data.currentOrder && data.currentOrder.progress !== undefined) {
+                        const progressCell = row.querySelector('td:nth-child(5)');
+                        if (progressCell) {
+                            const progressBar = progressCell.querySelector('.progress-bar');
+                            if (progressBar) {
+                                const progress = data.currentOrder.progress;
+                                progressBar.style.width = `${progress}%`;
+                                progressBar.textContent = `${progress}%`;
+                                progressBar.setAttribute('aria-valuenow', progress);
+                                
+                                // Если заказ завершён, обновляем ячейку "Текущий заказ"
+                                if (progress === 100) {
+                                    const currentOrderCell = row.querySelector('td:nth-child(4)');
+                                    if (currentOrderCell) {
+                                        currentOrderCell.textContent = 'Нет';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`Ошибка обновления линии ${lineId}:`, error);
+            }
+        }
+    }
+    
+    // Добавляем API-эндпоинт в контроллер (см. ниже)
+    
+    // Обновляем каждые 5 секунд
+    setInterval(updateAllLinesStatus, 5000);
 </script>
