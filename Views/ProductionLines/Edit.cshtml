@@ -1,0 +1,36 @@
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Редактировать линию";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="control-label">Название</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label class="control-label">Статус</label>
+        <input class="form-control" readonly 
+            value="@(Model.Status switch
+            {
+                "Active" => "Активна",
+                "Stopped" => "Остановлена",
+                _ => Model.Status
+            })" />
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="EfficiencyFactor" class="control-label">Коэффициент эффективности (0.5 - 2.0)</label>
+        <input asp-for="EfficiencyFactor" class="form-control" type="number" step="0.1" min="0.5" max="2.0" />
+        <span asp-validation-for="EfficiencyFactor" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>

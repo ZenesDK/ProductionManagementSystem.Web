@@ -1,0 +1,33 @@
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Удалить производственную линию";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Вы уверены, что хотите удалить эту линию?</h3>
+<p class="text-warning">Все назначенные заказы будут отвязаны от этой линии!</p>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            
+            <dt class="col-sm-3">Статус</dt>
+            <dd class="col-sm-9">
+                @(Model.Status == "Active" ? "Активна" : "Остановлена")
+            </dd>
+            
+            <dt class="col-sm-3">Коэффициент эффективности</dt>
+            <dd class="col-sm-9">@Model.EfficiencyFactor</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+</form>

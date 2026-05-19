@@ -1,0 +1,113 @@
+@model ProductionManagementSystem.Web.Models.ProductionLine
+
+@{
+    ViewData["Title"] = "Расписание линии " + Model.Name;
+    var availableOrders = ViewBag.AvailableOrders as List<ProductionManagementSystem.Web.Models.WorkOrder>; // Получаем из ViewBag
+}
+
+<h2>@ViewData["Title"]</h2>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<h3>Назначенные заказы</h3>
+@if (Model.AssignedWorkOrders.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Номер заказа</th>
+                <th>Продукт</th>
+                <th>Количество</th>
+                <th>Статус</th>
+                <th>Срок выполнения</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in Model.AssignedWorkOrders)
+            {
+                <tr>
+                    <td>@order.Id</td>
+                    <td>@order.Product.Name</td>
+                    <td>@order.Quantity</td>
+                    <td class="@(order.Status == "Completed" ? "text-success" : order.Status == "Cancelled" ? "text-danger" : order.Status == "InProgress" ? "text-info" : "text-warning")">
+                        @(order.Status switch
+                        {
+                            "Pending" => "Ожидает",
+                            "InProgress" => "В процессе",
+                            "Completed" => "Завершён",
+                            "Cancelled" => "Отменён",
+                            _ => order.Status
+                        })
+                    </td>
+                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        @if (order.Status == "Pending" && Model.Status == "Stopped")
+                        {
+                             <form asp-action="StartLine" method="post" style="display:inline;">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <input type="hidden" name="productId" value="@order.ProductId" />
+                                <button type="submit" class="btn btn-sm btn-success">Запустить в производство</button>
+                            </form>
+                        }
+                        @if (order.Status == "Pending")
+                        {
+                             <form asp-action="AssignOrder" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="productionLineId" value="@Model.Id" />
+                                <input type="hidden" name="workOrderId" value="@order.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-info">Назначить</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Для этой линии пока не назначено ни одного заказа.</p>
+}
+
+<h3>Доступные заказы для назначения</h3>
+@if (availableOrders != null && availableOrders.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Номер заказа</th>
+                <th>Продукт</th>
+                <th>Количество</th>
+                <th>Срок выполнения</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in availableOrders)
+            {
+                <tr>
+                    <td>@order.Id</td>
+                    <td>@order.Product.Name</td>
+                    <td>@order.Quantity</td>
+                    <td>@order.EstimatedEndDate.ToString("yyyy-MM-dd")</td>
+                    <td>
+                        <form asp-action="AssignOrder" method="post" style="display:inline;">
+                            <input type="hidden" name="productionLineId" value="@Model.Id" />
+                            <input type="hidden" name="workOrderId" value="@order.Id" />
+                            <button type="submit" class="btn btn-sm btn-primary">Назначить на линию</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Нет доступных заказов для назначения на эту линию.</p>
+}
+<a asp-action="Index" class="btn btn-secondary">Назад к списку линий</a>

@@ -1,0 +1,90 @@
+@model ProductionManagementSystem.Web.Models.WorkOrder
+
+@{
+    ViewData["Title"] = "Редактировать заказ";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group mb-3">
+        <label asp-for="ProductId" class="control-label">Продукт</label>
+        <select asp-for="ProductId" class="form-select" asp-items="@(new SelectList(ViewBag.Products, "Id", "Name"))" required onchange="calculateTimeAndCheckMaterialsEdit(this.value)">
+            <option value="">Выберите продукт</option>
+        </select>
+        <span asp-validation-for="ProductId" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" min="1" onchange="calculateTimeAndCheckMaterialsEdit(document.getElementById('ProductId').value, this.value)" />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="StartDate" class="control-label">Дата начала</label>
+        <input asp-for="StartDate" class="form-control" type="date" />
+        <span asp-validation-for="StartDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="ProductionLineId" class="control-label">Производственная линия</label>
+        <select asp-for="ProductionLineId" class="form-select" asp-items="@(new SelectList(ViewBag.Lines, "Id", "Name"))">
+            <option value="">Не назначена</option>
+        </select>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="EstimatedEndDate" class="control-label">Расчётная дата завершения</label>
+        <input asp-for="EstimatedEndDate" class="form-control" type="date" />
+        <span asp-validation-for="EstimatedEndDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label class="control-label">Статус</label>
+            <input class="form-control" readonly 
+                value="@(Model.Status switch
+                {
+                    "Pending" => "Ожидает",
+                    "InProgress" => "В процессе",
+                    "Completed" => "Завершён",
+                    "Cancelled" => "Отменён",
+                    _ => Model.Status
+                })" />
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+<script>
+    // Similar logic to Create, adapted for editing
+    async function calculateTimeAndCheckMaterialsEdit(productId, quantityInput) {
+        const quantity = quantityInput ? parseInt(quantityInput) : document.getElementById('Quantity').valueAsNumber;
+        if (!productId || quantity <= 0) return;
+
+        const lineSelect = document.getElementById('ProductionLineId');
+        const selectedLineOption = lineSelect.options[lineSelect.selectedIndex];
+        const lineId = selectedLineOption.value ? parseInt(selectedLineOption.value) : null;
+
+        // Fetch product details including ProductionTimePerUnit
+        try {
+            const productResponse = await fetch(`/Products/${productId}`); // API endpoint needed
+            if (productResponse.ok) {
+                const productData = await productResponse.json();
+                const timePerUnit = productData.productionTimePerUnit; // Adjust property name
+                const efficiency = lineId ? await getLineEfficiency(lineId) : 1.0;
+
+                const totalTimeMinutes = Math.ceil((quantity * timePerUnit) / efficiency);
+                const startDate = new Date(document.getElementById('StartDate').value);
+                const endDate = new Date(startDate.getTime() + totalTimeMinutes * 60000);
+
+                document.getElementById('EstimatedEndDate').valueAsDate = endDate;
+
+                // Material check logic here (similar to Create)
+            } else {
+                 console.error('Failed to fetch product details for calculation.');
+            }
+        } catch (error) {
+            console.error('Error during calculation:', error);
+        }
+    }
+</script>

@@ -1,0 +1,230 @@
+@model ProductionManagementSystem.Web.Models.ProductFormViewModel
+
+@{
+    ViewData["Title"] = "Редактировать продукт";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Product.Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    
+    <div class="card mb-3">
+        <div class="card-header">Основные данные</div>
+        <div class="card-body">
+            <div class="form-group mb-3">
+                <label asp-for="Product.Name" class="control-label">Название продукта</label>
+                <input asp-for="Product.Name" class="form-control" />
+                <span asp-validation-for="Product.Name" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Description" class="control-label">Описание</label>
+                <textarea asp-for="Product.Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Product.Description" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Specifications" class="control-label">Технические характеристики (JSON)</label>
+                <textarea asp-for="Product.Specifications" class="form-control" rows="4"></textarea>
+                <span asp-validation-for="Product.Specifications" class="text-danger"></span>
+            </div>
+            
+            <div class="form-group mb-3">
+                <label asp-for="Product.Category" class="control-label">Категория</label>
+                <input asp-for="Product.Category" class="form-control" />
+                <span asp-validation-for="Product.Category" class="text-danger"></span>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.MinimalStock" class="control-label">Минимальный запас</label>
+                        <input asp-for="Product.MinimalStock" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.MinimalStock" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label asp-for="Product.ProductionTimePerUnit" class="control-label">Время производства (мин/шт)</label>
+                        <input asp-for="Product.ProductionTimePerUnit" class="form-control" type="number" min="0" />
+                        <span asp-validation-for="Product.ProductionTimePerUnit" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция привязки материалов -->
+    <div class="card mb-3">
+        <div class="card-header">Необходимые материалы</div>
+        <div class="card-body">
+            <div id="materialsContainer">
+                <!-- Сюда будут добавляться строки материалов -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addMaterialRow()">
+                + Добавить материал
+            </button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <input type="submit" value="Сохранить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Правильная сериализация материалов
+        let availableMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.AvailableMaterials.Select(m => new { 
+                id = m.Id, 
+                name = m.Name, 
+                unitOfMeasure = m.UnitOfMeasure 
+            }).ToList()
+        ));
+        
+        let selectedMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SelectedMaterials));
+
+        function addMaterialRow(materialId = '', quantity = '') {
+            // Проверка: если materialId уже добавлен, не добавляем повторно
+            if (materialId) {
+                const existingRows = document.querySelectorAll('.material-row');
+                for (let row of existingRows) {
+                    const select = row.querySelector('.material-select');
+                    if (select && select.value == materialId) {
+                        alert('Этот материал уже добавлен!');
+                        return;
+                    }
+                }
+            }
+            
+            const container = document.getElementById('materialsContainer');
+            const rowId = 'materialRow_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const row = document.createElement('div');
+            row.className = 'row g-2 mb-2 align-items-center material-row';
+            row.id = rowId;
+            
+            // Создаем options для select
+            let optionsHtml = '<option value="">Выберите материал</option>';
+            for (let m of availableMaterials) {
+                const selected = m.id == materialId ? 'selected' : '';
+                optionsHtml += `<option value="${m.id}" 
+                                    data-name="${m.name}" 
+                                    data-unit="${m.unitOfMeasure}"
+                                    ${selected}>
+                                    ${m.name} (${m.unitOfMeasure})
+                                </option>`;
+            }
+            
+            row.innerHTML = `
+                <div class="col-md-6">
+                    <select class="form-select material-select" required onchange="checkDuplicateMaterial(this)">
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" 
+                           class="form-control material-quantity" 
+                           placeholder="Кол-во на ед." 
+                           min="0.01" 
+                           step="any" 
+                           value="${quantity}"
+                           required />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMaterialRow('${rowId}')">×</button>
+                </div>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeMaterialRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // Проверка дубликатов при изменении select
+        function checkDuplicateMaterial(selectElement) {
+            const selectedId = selectElement.value;
+            if (!selectedId) return;
+            
+            const row = selectElement.closest('.material-row');
+            const allRows = document.querySelectorAll('.material-row');
+            
+            for (let otherRow of allRows) {
+                if (otherRow === row) continue;
+                
+                const otherSelect = otherRow.querySelector('.material-select');
+                if (otherSelect && otherSelect.value == selectedId) {
+                    alert('Этот материал уже выбран в другой строке!');
+                    selectElement.value = '';
+                    return;
+                }
+            }
+        }
+
+        // Сбор данных перед отправкой формы
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const rows = document.querySelectorAll('.material-row');
+            const ids = [];
+            const quantities = [];
+            
+            rows.forEach(row => {
+                const select = row.querySelector('.material-select');
+                const quantity = row.querySelector('.material-quantity');
+                const materialId = select.value;
+                const qty = parseFloat(quantity.value);
+                
+                if (materialId && qty > 0) {
+                    if (ids.includes(materialId)) {
+                        alert('Материал "' + select.options[select.selectedIndex].text + '" уже добавлен!');
+                        e.preventDefault();
+                        return;
+                    }
+                    ids.push(materialId);
+                    quantities.push(qty);
+                }
+            });
+            
+            let hiddenIds = document.getElementById('selectedMaterialIds');
+            let hiddenQuantities = document.getElementById('materialQuantities');
+            
+            if (!hiddenIds) {
+                hiddenIds = document.createElement('input');
+                hiddenIds.type = 'hidden';
+                hiddenIds.id = 'selectedMaterialIds';
+                hiddenIds.name = 'selectedMaterialIds';
+                this.appendChild(hiddenIds);
+            }
+            
+            if (!hiddenQuantities) {
+                hiddenQuantities = document.createElement('input');
+                hiddenQuantities.type = 'hidden';
+                hiddenQuantities.id = 'materialQuantities';
+                hiddenQuantities.name = 'materialQuantities';
+                this.appendChild(hiddenQuantities);
+            }
+            
+            hiddenIds.value = ids.join(',');
+            hiddenQuantities.value = quantities.join(',');
+        });
+
+        // Инициализация с существующими материалами при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            if (selectedMaterials && selectedMaterials.length > 0) {
+                selectedMaterials.forEach(sm => {
+                    addMaterialRow(sm.materialId, sm.quantityNeeded);
+                });
+            }
+        });
+    </script>
+}

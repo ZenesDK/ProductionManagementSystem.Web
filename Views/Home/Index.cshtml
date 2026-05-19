@@ -1,0 +1,14 @@
+﻿@{
+    ViewData["Title"] = "Главная"; // Заголовок установлен в HomeController, но можно переопределить здесь
+}
+
+<div class="text-center">
+    <!-- Изменено: Приветственный текст -->
+    <h1 class="display-4">Добро пожаловать в систему управления производством!</h1>
+    <p>Используйте навигационное меню для доступа к различным разделам.</p>
+    <!-- Добавлены ссылки на основные страницы -->
+    <p><a asp-controller="Materials" asp-action="Index">Просмотреть список материалов</a></p>
+    <p><a asp-controller="Products" asp-action="Index">Просмотреть список продуктов</a></p>
+    <p><a asp-controller="WorkOrders" asp-action="Index">Просмотреть список заказов</a></p>
+    <p><a asp-controller="ProductionLines" asp-action="Index">Просмотреть производственные линии</a></p>
+</div>

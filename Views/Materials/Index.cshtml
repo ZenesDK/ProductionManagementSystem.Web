@@ -1,0 +1,143 @@
+@model IEnumerable<ProductionManagementSystem.Web.Models.Material>
+
+@{
+    ViewData["Title"] = "Панель материалов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+@Html.AntiForgeryToken()
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить материал</a>
+</p>
+
+<form method="get">
+    <div class="form-group mb-3">
+        <label for="low_stock_filter" class="form-check-label">Только с низким запасом</label>
+        <input type="checkbox" class="form-check-input" id="low_stock_filter" name="low_stock" value="true" @(ViewBag.LowStock ? "checked" : "") onchange="this.form.submit()">
+        <input type="hidden" name="low_stock" value="false" />
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Количество</th>
+            <th>Единицы измерения</th>
+            <th>Минимальный запас</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td class="@(item.Quantity <= item.MinimalStock ? "text-danger fw-bold" : "")">
+                    @Html.DisplayFor(modelItem => item.Quantity)
+                </td>
+                <td>@Html.DisplayFor(modelItem => item.UnitOfMeasure)</td>
+                <td>@Html.DisplayFor(modelItem => item.MinimalStock)</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="showAddStockModal(@item.Id, '@item.Name')">Пополнить</button>
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" 
+                       onclick="return confirm('Вы уверены, что хотите удалить материал \'@item.Name\'?')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Модальное окно для пополнения -->
+<div class="modal fade" id="addStockModal" tabindex="-1" aria-labelledby="addStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addStockModalLabel">Пополнить материал</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <p>Введите количество для пополнения <strong id="materialNameDisplay"></strong>:</p>
+                <input type="number" id="amountToAdd" class="form-control" step="any" min="0.01" placeholder="Введите количество" />
+                <div id="addStockError" class="text-danger mt-2" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="performAddStock()">Пополнить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMaterialId = null;
+
+    function showAddStockModal(materialId, materialName) {
+        currentMaterialId = materialId;
+        document.getElementById('materialNameDisplay').textContent = materialName;
+        document.getElementById('amountToAdd').value = '';
+        document.getElementById('addStockError').style.display = 'none';
+        
+        const modal = new bootstrap.Modal(document.getElementById('addStockModal'));
+        modal.show();
+    }
+
+    function performAddStock() {
+        const amountInput = document.getElementById('amountToAdd').value.trim();
+        
+        if (!amountInput) {
+            showError('Пожалуйста, введите количество.');
+            return;
+        }
+
+        const amount = parseFloat(amountInput);
+        if (isNaN(amount) || amount <= 0) {
+            showError('Количество должно быть положительным числом.');
+            return;
+        }
+
+        if (!currentMaterialId) {
+            showError('Ошибка: не указан материал.');
+            return;
+        }
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        
+        fetch(`/Materials/AddStock/${currentMaterialId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': token
+            },
+            body: JSON.stringify({ amount: amount })
+        })
+        .then(response => {
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addStockModal')).hide();
+                alert('Запас успешно пополнен!');
+                location.reload();
+            } else {
+                return response.text().then(text => {
+                    showError('Ошибка: ' + text);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Произошла ошибка при выполнении запроса.');
+        });
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('addStockError');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    document.getElementById('addStockModal').addEventListener('hidden.bs.modal', function () {
+        currentMaterialId = null;
+    });
+</script>

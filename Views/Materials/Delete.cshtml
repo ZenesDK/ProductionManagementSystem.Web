@@ -1,0 +1,33 @@
+@model ProductionManagementSystem.Web.Models.Material
+
+@{
+    ViewData["Title"] = "Удалить материал";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Вы уверены, что хотите удалить этот материал?</h3>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            
+            <dt class="col-sm-3">Количество</dt>
+            <dd class="col-sm-9">@Model.Quantity @Model.UnitOfMeasure</dd>
+            
+            <dt class="col-sm-3">Единица измерения</dt>
+            <dd class="col-sm-9">@Model.UnitOfMeasure</dd>
+            
+            <dt class="col-sm-3">Минимальный запас</dt>
+            <dd class="col-sm-9">@Model.MinimalStock</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+</form>

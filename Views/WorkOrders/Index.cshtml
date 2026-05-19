@@ -1,0 +1,80 @@
+@model IEnumerable<ProductionManagementSystem.Web.Models.WorkOrder>
+
+@{
+    ViewData["Title"] = "Панель заказов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form method="get" class="mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label for="status" class="col-form-label">Статус</label>
+        </div>
+        <div class="col-auto">
+            <select name="status" id="status" class="form-select" onchange="this.form.submit()">
+                <option value="">Все</option>
+                <option value="Pending" selected="@(ViewBag.Status == "Pending" ? "selected" : null)">Ожидает</option> <!-- Исправленная строка -->
+                <option value="InProgress" selected="@(ViewBag.Status == "InProgress" ? "selected" : null)">В процессе</option> <!-- Исправленная строка -->
+                <option value="Completed" selected="@(ViewBag.Status == "Completed" ? "selected" : null)">Завершён</option> <!-- Исправленная строка -->
+                <option value="Cancelled" selected="@(ViewBag.Status == "Cancelled" ? "selected" : null)">Отменён</option> <!-- Исправленная строка -->
+            </select>
+        </div>
+        <div class="col-auto">
+            <label for="date" class="col-form-label">Дата</label>
+        </div>
+        <div class="col-auto">
+            <input type="date" name="date" id="date" class="form-control" value="@(ViewBag.Date?.ToString("dd.MM.yyyy HH:mm"))" onchange="this.form.submit()" />
+        </div>
+    </div>
+</form>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Создать заказ</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Номер</th>
+            <th>Продукт</th>
+            <th>Количество</th>
+            <th>Статус</th>
+            <th>Срок выполнения</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Id)</td>
+                <td>@Html.DisplayFor(modelItem => item.Product.Name)</td>
+                <td>@Html.DisplayFor(modelItem => item.Quantity)</td>
+                <td class="@(item.Status == "Completed" ? "text-success" : item.Status == "Cancelled" ? "text-danger" : item.Status == "InProgress" ? "text-info" : "text-warning")">
+                    @(item.Status switch
+                    {
+                        "Pending" => "Ожидает",
+                        "InProgress" => "В процессе",
+                        "Completed" => "Завершён",
+                        "Cancelled" => "Отменён",
+                        _ => item.Status
+                    })
+                </td>
+                <td>@item.EstimatedEndDate.ToString("dd.MM.yyyy")</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    @if (item.Status == "Pending")
+                    {
+                        <form asp-action="Cancel" method="post" style="display:inline;">
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Вы уверены, что хотите отменить этот заказ?')">Отменить заказ</button>
+                        </form>
+                    }
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить заказ #@item.Id?')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

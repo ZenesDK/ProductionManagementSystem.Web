@@ -1,0 +1,69 @@
+@model ProductionManagementSystem.Web.Models.Product
+
+@{
+    ViewData["Title"] = "Управление материалами для " + Model.Name;
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<h3>Текущие материалы</h3>
+@if (Model.MaterialsNeeded.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Материал</th>
+                <th>Ед. изм.</th>
+                <th>Необходимое количество</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pm in Model.MaterialsNeeded)
+            {
+                <tr>
+                    <td>@pm.Material.Name</td>
+                    <td>@pm.Material.UnitOfMeasure</td>
+                    <td>@pm.QuantityNeeded</td>
+                    <td>
+                        <form asp-action="UnlinkMaterial" method="post" style="display:inline;">
+                            <input type="hidden" name="productId" value="@Model.Id" />
+                            <input type="hidden" name="materialId" value="@pm.MaterialId" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>Для этого продукта не указаны необходимые материалы.</p>
+}
+
+<h3>Добавить новый материал</h3>
+<form asp-action="LinkMaterial" method="post">
+    <input type="hidden" name="productId" value="@Model.Id" />
+    <div class="form-group mb-3">
+        <label for="materialId" class="control-label">Материал</label>
+        <select name="materialId" id="materialId" class="form-select" required>
+            <option value="">Выберите материал</option>
+            @foreach (var material in ViewBag.AllMaterials as List<Material>)
+            {
+                if (!Model.MaterialsNeeded.Any(pm => pm.MaterialId == material.Id))
+                {
+                    <option value="@material.Id">@material.Name</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="form-group mb-3">
+        <label for="quantityNeeded" class="control-label">Количество на единицу продукта</label>
+        <input type="number" step="any" name="quantityNeeded" id="quantityNeeded" class="form-control" required />
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Добавить" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
+    </div>
+</form>

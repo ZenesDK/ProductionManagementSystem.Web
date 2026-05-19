@@ -1,0 +1,83 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.pidb
+*.log
+*.cache
+*.pch
+*.ilk
+*.pdb
+*.exp
+*.lib
+*.obj
+*.res
+*.cache
+*.cache-*
+*.nupkg
+*.snk
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SQLite database
+*.db
+*.db-shm
+*.db-wal
+ProductionManagementSystem.db
+
+# User-specific files
+appsettings.Development.json
+appsettings.Production.json
+*.user
+secrets.json
+
+# NuGet Packages
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Node modules (if using npm/yarn)
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+Migrations/*.cs

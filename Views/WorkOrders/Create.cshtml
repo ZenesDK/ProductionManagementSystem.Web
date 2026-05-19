@@ -1,0 +1,46 @@
+@model ProductionManagementSystem.Web.Models.WorkOrder
+
+@{
+    ViewData["Title"] = "Создать производственный заказ";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create">
+    <!-- Этот тег-хелпер автоматически отображает ошибки уровня модели -->
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="form-group mb-3">
+        <label asp-for="ProductId" class="control-label">Продукт</label>
+        <select asp-for="ProductId" class="form-select" asp-items="@(new SelectList(ViewBag.Products, "Id", "Name"))" required>
+            <option value="">Выберите продукт</option>
+        </select>
+        <span asp-validation-for="ProductId" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="Quantity" class="control-label">Количество</label>
+        <input asp-for="Quantity" class="form-control" type="number" min="1" value="1" required />
+        <span asp-validation-for="Quantity" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="StartDate" class="control-label">Дата начала</label>
+        <input asp-for="StartDate" class="form-control" type="date" value="@(DateTime.Now.ToString("yyyy-MM-dd"))" required />
+        <span asp-validation-for="StartDate" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3">
+        <label asp-for="ProductionLineId" class="control-label">Производственная линия</label>
+        <select asp-for="ProductionLineId" class="form-select" asp-items="@(new SelectList(ViewBag.Lines, "Id", "Name"))">
+            <option value="">Не назначена</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <input type="submit" value="Создать" class="btn btn-primary" />
+        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

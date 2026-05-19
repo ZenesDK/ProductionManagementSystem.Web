@@ -1,0 +1,63 @@
+@model IEnumerable<ProductionManagementSystem.Web.Models.Product>
+
+@{
+    ViewData["Title"] = "Панель продуктов";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form method="get" class="mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label for="category" class="col-form-label">Категория</label>
+        </div>
+        <div class="col-auto">
+            <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+                <option value="">Все</option>
+                @{
+                    var categories = Model.Select(p => p.Category).Where(c => !string.IsNullOrEmpty(c)).Distinct().OrderBy(c => c).ToList();
+                }
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat" selected="@(ViewBag.Category == cat ? "selected" : null)" >@cat</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <input type="text" name="searchString" value="@ViewBag.SearchString" class="form-control" placeholder="Поиск продукта..." />
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary">Фильтровать</button>
+        </div>
+    </div>
+</form>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Добавить продукт</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Время производства (мин/шт)</th>
+            <th>Категория</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td>@Html.DisplayFor(modelItem => item.ProductionTimePerUnit)</td>
+                <td>@Html.DisplayFor(modelItem => item.Category)</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Вы уверены, что хотите удалить продукт \'@item.Name\'? Это также удалит все связанные материалы.')">Удалить</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
