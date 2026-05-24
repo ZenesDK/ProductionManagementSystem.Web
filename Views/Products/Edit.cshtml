@@ -18,25 +18,21 @@
                 <input asp-for="Product.Name" class="form-control" />
                 <span asp-validation-for="Product.Name" class="text-danger"></span>
             </div>
-            
             <div class="form-group mb-3">
                 <label asp-for="Product.Description" class="control-label">Описание</label>
                 <textarea asp-for="Product.Description" class="form-control" rows="3"></textarea>
                 <span asp-validation-for="Product.Description" class="text-danger"></span>
             </div>
-            
             <div class="form-group mb-3">
                 <label asp-for="Product.Specifications" class="control-label">Технические характеристики (JSON)</label>
                 <textarea asp-for="Product.Specifications" class="form-control" rows="4"></textarea>
                 <span asp-validation-for="Product.Specifications" class="text-danger"></span>
             </div>
-            
             <div class="form-group mb-3">
                 <label asp-for="Product.Category" class="control-label">Категория</label>
                 <input asp-for="Product.Category" class="form-control" />
                 <span asp-validation-for="Product.Category" class="text-danger"></span>
             </div>
-            
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-3">
@@ -77,17 +73,17 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-    
     <script>
-        // Правильная сериализация материалов
+        // Сериализация доступных материалов (все с маленькой буквы для удобства JS)
         let availableMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Model.AvailableMaterials.Select(m => new { 
-                id = m.Id, 
-                name = m.Name, 
-                unitOfMeasure = m.UnitOfMeasure 
+            Model.AvailableMaterials.Select(m => new {
+                id = m.Id,
+                name = m.Name,
+                unitOfMeasure = m.UnitOfMeasure
             }).ToList()
         ));
-        
+
+        // Сериализация уже выбранных материалов (сохраняем регистр C#, т.е. MaterialId)
         let selectedMaterials = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SelectedMaterials));
 
         function addMaterialRow(materialId = '', quantity = '') {
@@ -102,26 +98,26 @@
                     }
                 }
             }
-            
+
             const container = document.getElementById('materialsContainer');
             const rowId = 'materialRow_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            
             const row = document.createElement('div');
             row.className = 'row g-2 mb-2 align-items-center material-row';
             row.id = rowId;
-            
+
             // Создаем options для select
             let optionsHtml = '<option value="">Выберите материал</option>';
             for (let m of availableMaterials) {
-                const selected = m.id == materialId ? 'selected' : '';
-                optionsHtml += `<option value="${m.id}" 
-                                    data-name="${m.name}" 
-                                    data-unit="${m.unitOfMeasure}"
-                                    ${selected}>
-                                    ${m.name} (${m.unitOfMeasure})
+                // Сравниваем m.id (число) с materialId (может быть строкой или числом)
+                const selected = m.id == materialId ? 'selected' : ''; 
+                optionsHtml += `<option value="${m.id}"
+                                data-name="${m.name}"
+                                data-unit="${m.unitOfMeasure}"
+                                ${selected}>
+                                ${m.name} (${m.unitOfMeasure})
                                 </option>`;
             }
-            
+
             row.innerHTML = `
                 <div class="col-md-6">
                     <select class="form-select material-select" required onchange="checkDuplicateMaterial(this)">
@@ -129,11 +125,11 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <input type="number" 
-                           class="form-control material-quantity" 
-                           placeholder="Кол-во на ед." 
-                           min="0.01" 
-                           step="any" 
+                    <input type="number"
+                           class="form-control material-quantity"
+                           placeholder="Кол-во на ед."
+                           min="0.01"
+                           step="any"
                            value="${quantity}"
                            required />
                 </div>
@@ -141,7 +137,6 @@
                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMaterialRow('${rowId}')">×</button>
                 </div>
             `;
-            
             container.appendChild(row);
         }
 
@@ -162,7 +157,6 @@
             
             for (let otherRow of allRows) {
                 if (otherRow === row) continue;
-                
                 const otherSelect = otherRow.querySelector('.material-select');
                 if (otherSelect && otherSelect.value == selectedId) {
                     alert('Этот материал уже выбран в другой строке!');
@@ -183,7 +177,7 @@
                 const quantity = row.querySelector('.material-quantity');
                 const materialId = select.value;
                 const qty = parseFloat(quantity.value);
-                
+
                 if (materialId && qty > 0) {
                     if (ids.includes(materialId)) {
                         alert('Материал "' + select.options[select.selectedIndex].text + '" уже добавлен!');
@@ -194,10 +188,10 @@
                     quantities.push(qty);
                 }
             });
-            
+
             let hiddenIds = document.getElementById('selectedMaterialIds');
             let hiddenQuantities = document.getElementById('materialQuantities');
-            
+
             if (!hiddenIds) {
                 hiddenIds = document.createElement('input');
                 hiddenIds.type = 'hidden';
@@ -205,7 +199,6 @@
                 hiddenIds.name = 'selectedMaterialIds';
                 this.appendChild(hiddenIds);
             }
-            
             if (!hiddenQuantities) {
                 hiddenQuantities = document.createElement('input');
                 hiddenQuantities.type = 'hidden';
@@ -213,16 +206,20 @@
                 hiddenQuantities.name = 'materialQuantities';
                 this.appendChild(hiddenQuantities);
             }
-            
+
             hiddenIds.value = ids.join(',');
             hiddenQuantities.value = quantities.join(',');
         });
 
+        // === ИСПРАВЛЕНИЕ ЗДЕСЬ ===
         // Инициализация с существующими материалами при загрузке
         document.addEventListener('DOMContentLoaded', function() {
             if (selectedMaterials && selectedMaterials.length > 0) {
                 selectedMaterials.forEach(sm => {
-                    addMaterialRow(sm.materialId, sm.quantityNeeded);
+                    // В C# свойство называется MaterialId (с большой буквы), 
+                    // а System.Text.Json сохраняет регистр по умолчанию.
+                    // Поэтому используем sm.MaterialId, а не sm.materialId.
+                    addMaterialRow(sm.MaterialId, sm.QuantityNeeded); 
                 });
             }
         });
