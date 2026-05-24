@@ -28,6 +28,7 @@ public class OrderCompletionService : BackgroundService
                 foreach (var order in ordersToComplete)
                 {
                     order.Status = "Completed";
+                    order.Progress = 100;
                     _logger.LogInformation($"Заказ #{order.Id} автоматически завершён");
                 }
 
@@ -37,8 +38,8 @@ public class OrderCompletionService : BackgroundService
                 }
             }
 
-            // Проверять каждые 30 секунд
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+            // Проверять каждые 10 секунд
+            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         }
     }
 }

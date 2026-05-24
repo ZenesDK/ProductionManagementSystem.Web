@@ -42,6 +42,30 @@ public class WorkOrdersController : Controller
         }
 
         var workOrders = await query.OrderBy(wo => wo.StartDate).ToListAsync();
+        
+        // === РАСЧЕТ ПРОГРЕССА НА ОСНОВЕ ВРЕМЕНИ ===
+        var now = DateTime.Now;
+        foreach (var order in workOrders)
+        {
+            if (order.Status == "Completed")
+            {
+                order.Progress = 100;
+            }
+            else if (order.Status == "InProgress")
+            {
+                var totalDuration = order.EstimatedEndDate - order.StartDate;
+                if (totalDuration.TotalMinutes > 0)
+                {
+                    var elapsed = now - order.StartDate;
+                    if (elapsed.TotalMinutes < 0) elapsed = TimeSpan.Zero;
+                    
+                    var percent = (elapsed.TotalMinutes / totalDuration.TotalMinutes) * 100;
+                    order.Progress = (int)Math.Clamp(percent, 0, 100);
+                }
+            }
+        }
+        // ==========================================
+        
         return View(workOrders);
     }
 

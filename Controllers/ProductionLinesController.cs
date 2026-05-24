@@ -28,7 +28,7 @@ public class ProductionLinesController : Controller
     {
         IQueryable<ProductionLine> query = _context.ProductionLines
             .Include(pl => pl.CurrentWorkOrder)
-            .ThenInclude(wo => wo.Product);
+            .ThenInclude(wo => wo != null ? wo.Product : null);
 
         bool shouldFilterAvailable = (available == "true");
         if (shouldFilterAvailable)
@@ -38,6 +38,34 @@ public class ProductionLinesController : Controller
 
         ViewBag.Available = shouldFilterAvailable;
         var productionLines = await query.OrderBy(pl => pl.Name).ToListAsync();
+        
+        // === РАСЧЕТ ПРОГРЕССА ДЛЯ ТЕКУЩИХ ЗАКАЗОВ ===
+        var now = DateTime.Now;
+        foreach (var line in productionLines)
+        {
+            if (line.CurrentWorkOrder != null)
+            {
+                var order = line.CurrentWorkOrder;
+                if (order.Status == "Completed")
+                {
+                    order.Progress = 100;
+                }
+                else if (order.Status == "InProgress")
+                {
+                    var totalDuration = order.EstimatedEndDate - order.StartDate;
+                    if (totalDuration.TotalMinutes > 0)
+                    {
+                        var elapsed = now - order.StartDate;
+                        if (elapsed.TotalMinutes < 0) elapsed = TimeSpan.Zero;
+                        
+                        var percent = (elapsed.TotalMinutes / totalDuration.TotalMinutes) * 100;
+                        order.Progress = (int)Math.Clamp(percent, 0, 100);
+                    }
+                }
+            }
+        }
+        // ==============================================
+        
         return View(productionLines);
     }
 
@@ -191,6 +219,29 @@ public class ProductionLinesController : Controller
             .Include(wo => wo.Product)
             .ToListAsync();
 
+        // === РАСЧЕТ ПРОГРЕССА ДЛЯ ВСЕХ ЗАКАЗОВ НА ЛИНИИ ===
+        var now = DateTime.Now;
+        foreach (var order in productionLine.AssignedWorkOrders)
+        {
+            if (order.Status == "Completed")
+            {
+                order.Progress = 100;
+            }
+            else if (order.Status == "InProgress")
+            {
+                var totalDuration = order.EstimatedEndDate - order.StartDate;
+                if (totalDuration.TotalMinutes > 0)
+                {
+                    var elapsed = now - order.StartDate;
+                    if (elapsed.TotalMinutes < 0) elapsed = TimeSpan.Zero;
+                    
+                    var percent = (elapsed.TotalMinutes / totalDuration.TotalMinutes) * 100;
+                    order.Progress = (int)Math.Clamp(percent, 0, 100);
+                }
+            }
+        }
+        // ===============================================
+
         return View(productionLine);
     }
 
@@ -220,51 +271,41 @@ public class ProductionLinesController : Controller
             return NotFound($"Заказ #{workOrderId} не найден");
         }
 
-        // === ПРОВЕРКА МАТЕРИАЛОВ ===
+        // Проверка материалов
         bool hasSufficientMaterials = true;
-        var insufficientMaterialsList = new List<string>();
-        
         if (order.Product?.MaterialsNeeded != null)
         {
             foreach (var pm in order.Product.MaterialsNeeded)
             {
-                var material = await _context.Materials.FindAsync(pm.MaterialId);
-                var totalNeeded = pm.QuantityNeeded * order.Quantity;
+                var materialInStock = await _context.Materials
+                    .Where(m => m.Id == pm.MaterialId)
+                    .Select(m => m.Quantity)
+                    .FirstOrDefaultAsync();
                 
-                if (material == null)
-                {
-                    _logger.LogError($"Material {pm.MaterialId} not found");
-                    return NotFound($"Материал не найден");
-                }
-                
-                if (material.Quantity < totalNeeded)
+                if (materialInStock < pm.QuantityNeeded * order.Quantity)
                 {
                     hasSufficientMaterials = false;
-                    insufficientMaterialsList.Add($"{material.Name}: нужно {totalNeeded} {material.UnitOfMeasure}, есть {material.Quantity}");
-                    _logger.LogWarning($"Недостаточно материала {material.Name}: нужно {totalNeeded}, есть {material.Quantity}");
+                    _logger.LogWarning($"Недостаточно материала #{pm.MaterialId} для заказа #{workOrderId}");
+                    break;
                 }
             }
         }
 
         if (!hasSufficientMaterials)
         {
-            TempData["ErrorMessage"] = $"Недостаточно материалов:\n{string.Join("\n", insufficientMaterialsList)}";
+            TempData["ErrorMessage"] = "Недостаточно материалов для запуска заказа.";
             return RedirectToAction(nameof(Schedule), new { id = productionLineId });
         }
 
-        // === СПИСАНИЕ МАТЕРИАЛОВ ===
-        if (order.Product?.MaterialsNeeded != null)
-        {
-            foreach (var pm in order.Product.MaterialsNeeded)
-            {
-                var material = await _context.Materials.FindAsync(pm.MaterialId);
-                var totalToDeduct = pm.QuantityNeeded * order.Quantity;
-                
-                material.Quantity -= totalToDeduct;
-                _logger.LogInformation($"Списано {totalToDeduct} {material.UnitOfMeasure} материала '{material.Name}' для заказа #{order.Id}");
-            }
-        }
-        // === КОНЕЦ СПИСАНИЯ ===
+        // === КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ===
+        // Устанавливаем время начала на текущий момент (когда нажали "Назначить")
+        order.StartDate = DateTime.Now;
+        
+        // Пересчитываем EstimatedEndDate от текущего времени
+        float efficiency = line.EfficiencyFactor;
+        int totalTimeMinutes = (int)Math.Ceiling((order.Quantity * order.Product.ProductionTimePerUnit) / efficiency);
+        order.EstimatedEndDate = order.StartDate.AddMinutes(totalTimeMinutes);
+        // === КОНЕЦ ИЗМЕНЕНИЙ ===
 
         // Назначаем заказ на линию
         order.ProductionLineId = productionLineId;
@@ -277,7 +318,7 @@ public class ProductionLinesController : Controller
             line.Status = "Active";
         }
         
-        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен. Материалы списаны.");
+        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен. Старт: {order.StartDate}, Окончание: {order.EstimatedEndDate}");
         await _context.SaveChangesAsync();
         
         return RedirectToAction(nameof(Schedule), new { id = productionLineId });

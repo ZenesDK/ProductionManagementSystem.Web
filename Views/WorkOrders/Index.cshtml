@@ -14,14 +14,6 @@
     </div>
 }
 
-@if (TempData["WarningMessage"] != null)
-{
-    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        @TempData["WarningMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-}
-
 <form method="get" class="mb-3">
     <div class="row g-3 align-items-center">
         <div class="col-auto">
@@ -60,7 +52,7 @@
             <th>Время начала</th>
             <th>Производственная линия</th>
             <th></th>
-         </tr>
+        </tr>
     </thead>
     <tbody>
         @foreach (var item in Model)
@@ -70,10 +62,7 @@
                 <td>@Html.DisplayFor(modelItem => item.Product.Name)</td>
                 <td>@Html.DisplayFor(modelItem => item.Quantity)</td>
                 <td class="status-cell-@item.Id">
-                    <span class="badge 
-                        @(item.Status == "Completed" ? "bg-success" : 
-                          item.Status == "Cancelled" ? "bg-danger" : 
-                          item.Status == "InProgress" ? "bg-info" : "bg-warning")">
+                    <span class="badge @(item.Status == "Completed" ? "bg-success" : item.Status == "Cancelled" ? "bg-danger" : item.Status == "InProgress" ? "bg-info" : "bg-warning")">
                         @(item.Status switch
                         {
                             "Pending" => "Ожидает",
@@ -86,10 +75,13 @@
                 </td>
                 <td>
                     <div class="progress" style="height: 20px;">
-                        <div class="progress-bar progress-bar-@item.Id" role="progressbar" 
-                             style="width: @item.Progress%;" 
-                             aria-valuenow="@item.Progress" 
-                             aria-valuemin="0" 
+                        <!-- ДОБАВЛЕНЫ АТРИБУТЫ data-start И data-end -->
+                        <div class="progress-bar progress-bar-@item.Id real-time-progress" role="progressbar"
+                             data-start="@item.StartDate.ToString("yyyy-MM-ddTHH:mm:ss")"
+                             data-end="@item.EstimatedEndDate.ToString("yyyy-MM-ddTHH:mm:ss")"
+                             style="width: @item.Progress%;"
+                             aria-valuenow="@item.Progress"
+                             aria-valuemin="0"
                              aria-valuemax="100">
                             @item.Progress%
                         </div>
@@ -109,83 +101,61 @@
                         </form>
                     }
                     <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger"
-                        onclick="return confirm('Вы уверены, что хотите удалить заказ #@item.Id?')">Удалить</a>
+                       onclick="return confirm('Вы уверены, что хотите удалить заказ #@item.Id?')">Удалить</a>
                 </td>
             </tr>
         }
     </tbody>
 </table>
 
-<script>
-    // Функция для периодического обновления статусов
-    function updateAllOrders() {
-        const rows = document.querySelectorAll('tbody tr');
-        
-        rows.forEach(row => {
-            const idCell = row.querySelector('td:first-child');
-            if (!idCell) return;
-            
-            const orderId = parseInt(idCell.textContent);
-            if (isNaN(orderId)) return;
-            
-            fetch(`/api/WorkOrders/GetProgress/${orderId}`)
-                .then(response => {
-                    if (response.status === 404) return null;
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data) return;
-                    
-                    // Обновляем прогресс-бар
-                    const progressBar = row.querySelector(`.progress-bar-${orderId}`);
-                    if (progressBar) {
-                        progressBar.style.width = `${data.progress}%`;
-                        progressBar.textContent = `${data.progress}%`;
-                        progressBar.setAttribute('aria-valuenow', data.progress);
-                    }
-                    
-                    // Обновляем статус
-                    const statusCell = row.querySelector(`.status-cell-${orderId}`);
-                    if (statusCell) {
-                        let statusText = '';
-                        let badgeClass = '';
-                        
-                        switch (data.status) {
-                            case 'Pending':
-                                statusText = 'Ожидает';
-                                badgeClass = 'bg-warning';
-                                break;
-                            case 'InProgress':
-                                statusText = 'В процессе';
-                                badgeClass = 'bg-info';
-                                break;
-                            case 'Completed':
-                                statusText = 'Завершён';
-                                badgeClass = 'bg-success';
-                                break;
-                            case 'Cancelled':
-                                statusText = 'Отменён';
-                                badgeClass = 'bg-danger';
-                                break;
-                            default:
-                                statusText = data.status;
-                                badgeClass = 'bg-secondary';
-                        }
-                        
-                        statusCell.innerHTML = `<span class="badge ${badgeClass}">${statusText}</span>`;
-                        
-                        if (data.status === 'Completed') {
-                            row.style.opacity = '0.7';
-                        }
-                    }
-                })
-                .catch(error => console.error(`Ошибка обновления заказа ${orderId}:`, error));
+@section Scripts {
+    <script>
+        // Функция для расчета и анимации прогресс-баров на основе времени
+        function updateProgressBars() {
+            const bars = document.querySelectorAll('.real-time-progress');
+            const now = new Date();
+
+            bars.forEach(bar => {
+                // Если заказ уже завершен (100%), можно пропустить или оставить 100%
+                // Но для визуальной точности пересчитаем
+                const startStr = bar.getAttribute('data-start');
+                const endStr = bar.getAttribute('data-end');
+
+                const start = new Date(startStr);
+                const end = new Date(endStr);
+
+                if (isNaN(start) || isNaN(end)) return;
+
+                const totalDuration = end - start;
+                if (totalDuration <= 0) return; // Защита от деления на ноль
+
+                const elapsed = now - start;
+                let percent = (elapsed / totalDuration) * 100;
+
+                // Ограничиваем от 0 до 100
+                if (percent < 0) percent = 0;
+                if (percent > 100) percent = 100;
+
+                const rounded = Math.round(percent);
+
+                // Обновляем визуальную часть
+                bar.style.width = rounded + '%';
+                bar.textContent = rounded + '%';
+                bar.setAttribute('aria-valuenow', rounded);
+                
+                // Если 100%, меняем цвет на зеленый (Bootstrap класс)
+                if (rounded === 100) {
+                    bar.classList.add('bg-success');
+                } else {
+                    bar.classList.remove('bg-success');
+                }
+            });
+        }
+
+        // Запускаем сразу при загрузке и повторяем каждую секунду
+        document.addEventListener('DOMContentLoaded', function() {
+            updateProgressBars();
+            setInterval(updateProgressBars, 1000);
         });
-    }
-    
-    // Запускаем обновление
-    document.addEventListener('DOMContentLoaded', function() {
-        updateAllOrders();
-        setInterval(updateAllOrders, 3000);
-    });
-</script>
+    </script>
+}

@@ -39,14 +39,17 @@
                 <th></th>
             </tr>
         </thead>
-        <tbody>
+        <!-- Добавлен ID для удобного поиска в JS -->
+        <tbody id="assigned-orders-table">
             @foreach (var order in Model.AssignedWorkOrders)
             {
-                <tr>
+                <tr id="order-row-@order.Id" data-status="@order.Status">
                     <td>@order.Id</td>
                     <td>@order.Product?.Name</td>
                     <td>@order.Quantity</td>
-                    <td class="@(order.Status == "Completed" ? "text-success" : order.Status == "Cancelled" ? "text-danger" : order.Status == "InProgress" ? "text-info" : "text-warning")">
+                    
+                    <!-- Класс для быстрого доступа к ячейке статуса -->
+                    <td class="status-cell @(order.Status == "Completed" ? "text-success" : order.Status == "Cancelled" ? "text-danger" : order.Status == "InProgress" ? "text-info" : "text-warning")">
                         @(order.Status switch
                         {
                             "Pending" => "Ожидает",
@@ -55,26 +58,36 @@
                             "Cancelled" => "Отменён",
                             _ => order.Status
                         })
-                     </td>
+                    </td>
+                    
                     <td>
                         <div class="progress" style="height: 20px;">
-                            <div class="progress-bar" role="progressbar" style="width: @order.Progress%;" aria-valuenow="@order.Progress" aria-valuemin="0" aria-valuemax="100">@order.Progress%</div>
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: @order.Progress%;" 
+                                 aria-valuenow="@order.Progress" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                @order.Progress%
+                            </div>
                         </div>
-                     </td>
+                    </td>
+                    
                     <td>@order.EstimatedEndDate.ToString("dd.MM.yyyy HH:mm")</td>
                     <td>@order.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
-                    <td>
+                    
+                    <!-- Класс для управления кнопками действий -->
+                    <td class="action-cell">
                         @if (order.Status == "Pending")
                         {
-                             <form asp-action="AssignOrder" method="post" style="display:inline;">
+                            <form asp-action="AssignOrder" method="post" style="display:inline;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="productionLineId" value="@Model.Id" />
                                 <input type="hidden" name="workOrderId" value="@order.Id" />
                                 <button type="submit" class="btn btn-sm btn-success">Запустить</button>
                             </form>
                         }
-                     </td>
-                 </tr>
+                    </td>
+                </tr>
             }
         </tbody>
     </table>
@@ -96,7 +109,7 @@ else
                 <th>Срок выполнения</th>
                 <th>Время начала</th>
                 <th></th>
-             </tr>
+            </tr>
         </thead>
         <tbody>
             @foreach (var order in availableOrders)
@@ -114,8 +127,8 @@ else
                             <input type="hidden" name="workOrderId" value="@order.Id" />
                             <button type="submit" class="btn btn-sm btn-primary">Назначить на линию</button>
                         </form>
-                     </td>
-                 </tr>
+                    </td>
+                </tr>
             }
         </tbody>
     </table>
@@ -126,3 +139,89 @@ else
 }
 
 <a asp-action="Index" class="btn btn-secondary">Назад к списку линий</a>
+
+<!-- ⚡ СКРИПТ РЕАЛЬНОГО ВРЕМЕНИ ⚡ -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Функция обновления статусов и прогресса
+        function updateOrdersStatus() {
+            const rows = document.querySelectorAll('#assigned-orders-table tr');
+            const now = new Date();
+
+            rows.forEach(row => {
+                const orderId = row.id.replace('order-row-', '');
+                const currentStatus = row.getAttribute('data-status');
+
+                // Оптимизация: обновляем только заказы, которые ещё идут или ожидают
+                if (currentStatus === 'InProgress' || currentStatus === 'Pending') {
+                    fetch(`/WorkOrders/GetOrderDetails/${orderId}`)
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            // 1. Обновляем атрибут статуса в DOM
+                            row.setAttribute('data-status', data.status);
+
+                            // 2. Обновляем ячейку статуса
+                            const statusCell = row.querySelector('.status-cell');
+                            if (statusCell) {
+                                let statusText = '';
+                                let statusClass = '';
+                                switch(data.status) {
+                                    case 'Pending': 
+                                        statusText = 'Ожидает'; statusClass = 'text-warning'; break;
+                                    case 'InProgress': 
+                                        statusText = 'В процессе'; statusClass = 'text-info'; break;
+                                    case 'Completed': 
+                                        statusText = 'Завершён'; statusClass = 'text-success'; break;
+                                    case 'Cancelled': 
+                                        statusText = 'Отменён'; statusClass = 'text-danger'; break;
+                                    default: 
+                                        statusText = data.status; statusClass = 'text-secondary';
+                                }
+                                statusCell.textContent = statusText;
+                                statusCell.className = `status-cell ${statusClass}`;
+                            }
+
+                            // 3. Обновляем прогресс-бар
+                            const progressBar = row.querySelector('.progress-bar');
+                            if (progressBar) {
+                                let percent = 0;
+                                if (data.status === 'Completed') {
+                                    percent = 100;
+                                } else if (data.status === 'InProgress') {
+                                    const start = new Date(data.startDate);
+                                    const end = new Date(data.estimatedEndDate);
+                                    const total = end - start;
+                                    
+                                    if (total > 0) {
+                                        const elapsed = now - start;
+                                        // Расчет процента с защитой от отрицательных и >100 значений
+                                        percent = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+                                    }
+                                }
+                                
+                                progressBar.style.width = `${percent}%`;
+                                progressBar.textContent = `${percent}%`;
+                                progressBar.setAttribute('aria-valuenow', percent);
+                            }
+
+                            // 4. Если заказ завершён, заменяем кнопку на галочку
+                            if (data.status === 'Completed') {
+                                const actionCell = row.querySelector('.action-cell');
+                                if (actionCell) {
+                                    actionCell.innerHTML = '<span class="text-success fw-bold">✔ Завершён</span>';
+                                }
+                            }
+                        })
+                        .catch(error => console.error(`Ошибка обновления заказа #${orderId}:`, error));
+                }
+            });
+        }
+
+        // Запускаем обновление сразу и повторяем каждые 3 секунды
+        updateOrdersStatus();
+        setInterval(updateOrdersStatus, 3000);
+    });
+</script>
