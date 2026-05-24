@@ -220,56 +220,66 @@ public class ProductionLinesController : Controller
             return NotFound($"Заказ #{workOrderId} не найден");
         }
 
-        // Проверка материалов
+        // === ПРОВЕРКА МАТЕРИАЛОВ ===
         bool hasSufficientMaterials = true;
+        var insufficientMaterialsList = new List<string>();
+        
         if (order.Product?.MaterialsNeeded != null)
         {
             foreach (var pm in order.Product.MaterialsNeeded)
             {
-                var materialInStock = await _context.Materials
-                    .Where(m => m.Id == pm.MaterialId)
-                    .Select(m => m.Quantity)
-                    .FirstOrDefaultAsync();
+                var material = await _context.Materials.FindAsync(pm.MaterialId);
+                var totalNeeded = pm.QuantityNeeded * order.Quantity;
                 
-                if (materialInStock < pm.QuantityNeeded * order.Quantity)
+                if (material == null)
+                {
+                    _logger.LogError($"Material {pm.MaterialId} not found");
+                    return NotFound($"Материал не найден");
+                }
+                
+                if (material.Quantity < totalNeeded)
                 {
                     hasSufficientMaterials = false;
-                    _logger.LogWarning($"Недостаточно материала #{pm.MaterialId} для заказа #{workOrderId}");
-                    break;
+                    insufficientMaterialsList.Add($"{material.Name}: нужно {totalNeeded} {material.UnitOfMeasure}, есть {material.Quantity}");
+                    _logger.LogWarning($"Недостаточно материала {material.Name}: нужно {totalNeeded}, есть {material.Quantity}");
                 }
             }
         }
 
         if (!hasSufficientMaterials)
         {
-            TempData["ErrorMessage"] = "Недостаточно материалов для запуска заказа.";
+            TempData["ErrorMessage"] = $"Недостаточно материалов:\n{string.Join("\n", insufficientMaterialsList)}";
             return RedirectToAction(nameof(Schedule), new { id = productionLineId });
         }
 
-        // === КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ===
-        // Устанавливаем время начала производства на текущий момент
-        order.StartDate = DateTime.Now;
-        
-        // Пересчитываем EstimatedEndDate от текущего времени
-        float efficiency = line.EfficiencyFactor;
-        int totalTimeMinutes = (int)Math.Ceiling((order.Quantity * order.Product.ProductionTimePerUnit) / efficiency);
-        order.EstimatedEndDate = order.StartDate.AddMinutes(totalTimeMinutes);
-        // === КОНЕЦ ИЗМЕНЕНИЙ ===
+        // === СПИСАНИЕ МАТЕРИАЛОВ ===
+        if (order.Product?.MaterialsNeeded != null)
+        {
+            foreach (var pm in order.Product.MaterialsNeeded)
+            {
+                var material = await _context.Materials.FindAsync(pm.MaterialId);
+                var totalToDeduct = pm.QuantityNeeded * order.Quantity;
+                
+                material.Quantity -= totalToDeduct;
+                _logger.LogInformation($"Списано {totalToDeduct} {material.UnitOfMeasure} материала '{material.Name}' для заказа #{order.Id}");
+            }
+        }
+        // === КОНЕЦ СПИСАНИЯ ===
 
         // Назначаем заказ на линию
         order.ProductionLineId = productionLineId;
-        order.Status = "InProgress"; // Всегда меняем статус на "В процессе"
+        order.Status = "InProgress";
         
         // Делаем этот заказ текущим для линии
         line.CurrentWorkOrderId = order.Id;
         if (line.Status != "Active")
         {
-            line.Status = "Active"; // Активируем линию
+            line.Status = "Active";
         }
         
-        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен. Старт: {order.StartDate}, Окончание: {order.EstimatedEndDate}");
-
+        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен. Материалы списаны.");
         await _context.SaveChangesAsync();
+        
         return RedirectToAction(nameof(Schedule), new { id = productionLineId });
     }
 

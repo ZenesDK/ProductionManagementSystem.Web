@@ -9,6 +9,12 @@ public class MaterialsController : Controller
 {
     private readonly ApplicationDbContext _context;
 
+    private static readonly List<string> AvailableUnits = new()
+    {
+        "шт", "кг", "г", "л", "мл", "м", "см", "мм", 
+        "уп", "рулон", "лист", "м²", "м³", "партия"
+    };
+
     public MaterialsController(ApplicationDbContext context)
     {
         _context = context;
@@ -33,6 +39,7 @@ public class MaterialsController : Controller
     // GET: Materials/Create
     public IActionResult Create()
     {
+        ViewBag.UnitsOfMeasure = AvailableUnits;
         return View();
     }
 
@@ -67,6 +74,7 @@ public class MaterialsController : Controller
         var material = await _context.Materials.FindAsync(id);
         if (material == null) return NotFound();
 
+        ViewBag.UnitsOfMeasure = AvailableUnits;
         return View(material);
     }
 
