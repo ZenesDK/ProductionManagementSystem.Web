@@ -208,37 +208,68 @@ public class ProductionLinesController : Controller
             .ThenInclude(pm => pm.Material)
             .FirstOrDefaultAsync(wo => wo.Id == workOrderId);
 
-        if (line == null || order == null)
+        if (line == null)
         {
-            return NotFound();
+            _logger.LogError($"Production line {productionLineId} not found");
+            return NotFound($"Линия #{productionLineId} не найдена");
         }
-
-        // Проверка материалов через сервис
-        var (hasEnough, message) = await _materialService.CheckMaterialsAsync(order);
         
-        if (!hasEnough)
+        if (order == null)
         {
-            TempData["ErrorMessage"] = message;
+            _logger.LogError($"Work order {workOrderId} not found");
+            return NotFound($"Заказ #{workOrderId} не найден");
+        }
+
+        // Проверка материалов
+        bool hasSufficientMaterials = true;
+        if (order.Product?.MaterialsNeeded != null)
+        {
+            foreach (var pm in order.Product.MaterialsNeeded)
+            {
+                var materialInStock = await _context.Materials
+                    .Where(m => m.Id == pm.MaterialId)
+                    .Select(m => m.Quantity)
+                    .FirstOrDefaultAsync();
+                
+                if (materialInStock < pm.QuantityNeeded * order.Quantity)
+                {
+                    hasSufficientMaterials = false;
+                    _logger.LogWarning($"Недостаточно материала #{pm.MaterialId} для заказа #{workOrderId}");
+                    break;
+                }
+            }
+        }
+
+        if (!hasSufficientMaterials)
+        {
+            TempData["ErrorMessage"] = "Недостаточно материалов для запуска заказа.";
             return RedirectToAction(nameof(Schedule), new { id = productionLineId });
         }
 
-        // Списываем материалы
-        var deductSuccess = await _materialService.DeductMaterialsAsync(order);
-        if (!deductSuccess)
-        {
-            TempData["ErrorMessage"] = "Ошибка при списании материалов. Попробуйте ещё раз.";
-            return RedirectToAction(nameof(Schedule), new { id = productionLineId });
-        }
+        // === КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ===
+        // Устанавливаем время начала производства на текущий момент
+        order.StartDate = DateTime.Now;
+        
+        // Пересчитываем EstimatedEndDate от текущего времени
+        float efficiency = line.EfficiencyFactor;
+        int totalTimeMinutes = (int)Math.Ceiling((order.Quantity * order.Product.ProductionTimePerUnit) / efficiency);
+        order.EstimatedEndDate = order.StartDate.AddMinutes(totalTimeMinutes);
+        // === КОНЕЦ ИЗМЕНЕНИЙ ===
 
         // Назначаем заказ на линию
         order.ProductionLineId = productionLineId;
-        order.Status = "InProgress";
+        order.Status = "InProgress"; // Всегда меняем статус на "В процессе"
+        
+        // Делаем этот заказ текущим для линии
         line.CurrentWorkOrderId = order.Id;
-        line.Status = "Active";
+        if (line.Status != "Active")
+        {
+            line.Status = "Active"; // Активируем линию
+        }
         
+        _logger.LogInformation($"Заказ #{order.Id} назначен на линию #{productionLineId} и запущен. Старт: {order.StartDate}, Окончание: {order.EstimatedEndDate}");
+
         await _context.SaveChangesAsync();
-        
-        TempData["SuccessMessage"] = $"Заказ #{order.Id} запущен. Материалы списаны.";
         return RedirectToAction(nameof(Schedule), new { id = productionLineId });
     }
 
